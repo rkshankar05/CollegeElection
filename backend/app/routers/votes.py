@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from app import models, schemas, oauth2
 from app.database import get_db
@@ -95,10 +95,18 @@ def submit_votes(
                 detail=f"Invalid candidate id {vote_item.candidate_id}"
             )
 
+        status_filter = models.CandidatePost.status == "approved"
+
+        if candidate.status == "approved":
+            status_filter = or_(
+                models.CandidatePost.status == "approved",
+                models.CandidatePost.status.is_(None),
+            )
+
         candidate_post = db.query(models.CandidatePost).filter(
             models.CandidatePost.candidate_id == vote_item.candidate_id,
             models.CandidatePost.post_id == vote_item.post_id,
-            models.CandidatePost.status == "approved"
+            status_filter
         ).first()
 
         if not candidate_post:
@@ -180,6 +188,12 @@ def public_results(
         raise HTTPException(
             status_code=403,
             detail="Result not published yet"
+        )
+
+    if datetime.utcnow() < election.voting_end:
+        raise HTTPException(
+            status_code=403,
+            detail="Results are available only after voting ends"
         )
 
     results = (

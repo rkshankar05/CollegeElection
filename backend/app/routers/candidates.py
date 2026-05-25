@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app import models, schemas, oauth2
@@ -249,18 +250,59 @@ def review_candidate(
             detail="Candidate post not found"
         )
 
-    if candidate_post.status != "pending":
+    candidate = db.query(models.Candidate).filter(
+        models.Candidate.id == candidate_post.candidate_id
+    ).first()
+
+    if not candidate:
+        raise HTTPException(
+            status_code=404,
+            detail="Candidate not found"
+        )
+
+    election = db.query(models.Election).filter(
+        models.Election.id == candidate.election_id
+    ).first()
+
+    if not election:
+        raise HTTPException(
+            status_code=404,
+            detail="Election not found"
+        )
+
+    if datetime.utcnow() >= election.voting_start:
         raise HTTPException(
             status_code=400,
-            detail="Candidate post already reviewed"
+            detail="Candidate review is closed because voting has started"
         )
+
+    if candidate_post.status == data.status:
+        if data.status == "rejected" and data.rejection_reason:
+            candidate_post.rejection_reason = data.rejection_reason
+            candidate_post.reviewed_at = datetime.utcnow()
+            db.commit()
+            db.refresh(candidate_post)
+
+        return {
+            "message": f"Candidate post already {candidate_post.status}",
+            "candidate_post_id": candidate_post.id,
+            "status": candidate_post.status
+        }
 
     if data.status == "approved":
         approved_count = (
             db.query(models.CandidatePost)
+            .join(models.Candidate, models.Candidate.id == models.CandidatePost.candidate_id)
             .filter(
                 models.CandidatePost.post_id == candidate_post.post_id,
-                models.CandidatePost.status == "approved"
+                models.CandidatePost.id != candidate_post.id,
+                or_(
+                    models.CandidatePost.status == "approved",
+                    and_(
+                        models.CandidatePost.status.is_(None),
+                        models.Candidate.status == "approved",
+                    ),
+                )
             )
             .count()
         )
@@ -330,7 +372,13 @@ def get_public_candidates(
         .join(models.Post, models.Post.id == models.CandidatePost.post_id)
         .filter(
             models.Candidate.election_id == election_id,
-            models.CandidatePost.status == "approved"
+            or_(
+                models.CandidatePost.status == "approved",
+                and_(
+                    models.CandidatePost.status.is_(None),
+                    models.Candidate.status == "approved",
+                ),
+            )
         )
         .order_by(
             models.Post.display_order.asc(),

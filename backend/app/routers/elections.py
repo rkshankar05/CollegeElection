@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app import models, schemas, oauth2
@@ -99,7 +100,13 @@ def get_published_candidates(
         .join(models.Post, models.Post.id == models.CandidatePost.post_id)
         .filter(
             models.Candidate.election_id == election_id,
-            models.CandidatePost.status == "approved"
+            or_(
+                models.CandidatePost.status == "approved",
+                and_(
+                    models.CandidatePost.status.is_(None),
+                    models.Candidate.status == "approved",
+                ),
+            )
         )
         .order_by(models.Post.display_order.asc(), models.User.name.asc())
         .all()

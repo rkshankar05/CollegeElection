@@ -8,8 +8,18 @@ export default function Results() {
   const [results, setResults] = useState(null);
   const [error, setError] = useState("");
 
+  function canShowResults(election) {
+    if (!election?.result_visible || !election?.voting_end) {
+      return false;
+    }
+
+    return new Date() >= new Date(election.voting_end);
+  }
+
   useEffect(() => {
-    getElections().then(setElections).catch(() => setError("Failed to load"));
+    getElections()
+      .then((data) => setElections((data || []).filter(canShowResults)))
+      .catch(() => setError("Failed to load"));
   }, []);
 
   async function loadResults(id) {

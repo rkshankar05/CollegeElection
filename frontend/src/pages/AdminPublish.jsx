@@ -13,6 +13,18 @@ export default function AdminPublish() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
+  function hasVotingEnded(election) {
+    if (!election?.voting_end) {
+      return false;
+    }
+
+    return new Date() >= new Date(election.voting_end);
+  }
+
+  function isResultPublished(election) {
+    return Boolean(election?.result_visible) && hasVotingEnded(election);
+  }
+
   useEffect(() => {
     getElections().then(setElections);
   }, []);
@@ -41,15 +53,15 @@ export default function AdminPublish() {
         if (!prev) return prev;
 
         if (action === publishCandidates) {
-          return { ...prev, candidates_published: true };
+          return { ...prev, candidates_visible: true };
         }
 
         if (action === unpublishCandidates) {
-          return { ...prev, candidates_published: false };
+          return { ...prev, candidates_visible: false };
         }
 
         if (action === publishResult) {
-          return { ...prev, result_published: true };
+          return { ...prev, result_visible: true };
         }
 
         return prev;
@@ -90,12 +102,12 @@ export default function AdminPublish() {
 
               <p>
                 Status:{" "}
-                {selectedElection.candidates_published
+                {selectedElection.candidates_visible
                   ? "Published"
                   : "Not Published"}
               </p>
 
-              {selectedElection.candidates_published ? (
+              {selectedElection.candidates_visible ? (
                 <button
                   className="danger"
                   onClick={() =>
@@ -120,13 +132,15 @@ export default function AdminPublish() {
 
               <p>
                 Status:{" "}
-                {selectedElection.result_published
+                {isResultPublished(selectedElection)
                   ? "Published"
                   : "Not Published"}
               </p>
 
-              {selectedElection.result_published ? (
+              {isResultPublished(selectedElection) ? (
                 <button disabled>Result Already Published</button>
+              ) : !hasVotingEnded(selectedElection) ? (
+                <button disabled>Publish Result After Voting Ends</button>
               ) : (
                 <button onClick={() => run(publishResult, "Result published")}>
                   Publish Result

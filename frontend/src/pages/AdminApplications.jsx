@@ -56,41 +56,47 @@ export default function AdminApplications() {
         <div className="card" key={postName}>
           <h2>{postName}</h2>
 
-          {groups[postName].map((c, index) => (
-            <div className="row" key={`${postName}-${c.id}-${index}`}>
-              <div>
-                <h3>{c.candidate_name}</h3>
-                <p>College Email: {c.college_email}</p>
-                <p>Roll: {c.roll_number}</p>
-                <p>Status: {c.status}</p>
-                <p>
-                  Applied:{" "}
-                  {c.applied_at
-                    ? new Date(c.applied_at).toLocaleString()
-                    : "N/A"}
-                </p>
+          {groups[postName].map((c, index) => {
+            const status = c.status || "pending";
 
-                {c.rejection_reason && (
-                  <p>Reason: {c.rejection_reason}</p>
-                )}
-              </div>
-
-              {c.status === "pending" && (
+            return (
+              <div className="row" key={`${postName}-${c.id}-${index}`}>
                 <div>
-                  <button onClick={() => review(c.id, "approved")}>
-                    Approve
+                  <h3>{c.candidate_name}</h3>
+                  <p>College Email: {c.college_email}</p>
+                  <p>Roll: {c.roll_number}</p>
+                  <p>Status: {status}</p>
+                  <p>
+                    Applied:{" "}
+                    {c.applied_at
+                      ? new Date(c.applied_at).toLocaleString()
+                      : "N/A"}
+                  </p>
+
+                  {c.rejection_reason && (
+                    <p>Reason: {c.rejection_reason}</p>
+                  )}
+                </div>
+
+                <div>
+                  <button
+                    onClick={() => review(c.id, "approved")}
+                    disabled={status === "approved"}
+                  >
+                    {status === "approved" ? "Approved" : "Approve"}
                   </button>
 
                   <button
                     className="danger"
                     onClick={() => review(c.id, "rejected")}
+                    disabled={status === "rejected"}
                   >
-                    Reject
+                    {status === "rejected" ? "Rejected" : "Reject"}
                   </button>
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       ))}
     </div>

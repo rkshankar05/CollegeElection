@@ -1,8 +1,55 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { getElections } from "../api/electionService";
 import { getRole, isLoggedIn, logout } from "../utils/auth";
 
 export default function Navbar() {
   const role = getRole();
+  const [showVoteLink, setShowVoteLink] = useState(false);
+  const [showResultsLink, setShowResultsLink] = useState(false);
+
+  useEffect(() => {
+    if (role !== "student" || !isLoggedIn()) {
+      setShowVoteLink(false);
+      setShowResultsLink(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    getElections()
+      .then((elections) => {
+        if (cancelled) {
+          return;
+        }
+
+        const now = new Date();
+        const hasActiveVoting = (elections || []).some((election) => {
+          const votingStart = new Date(election.voting_start);
+          const votingEnd = new Date(election.voting_end);
+
+          return now >= votingStart && now <= votingEnd;
+        });
+        const hasPublishedResults = (elections || []).some(
+          (election) =>
+            election.result_visible &&
+            now > new Date(election.voting_end)
+        );
+
+        setShowVoteLink(hasActiveVoting);
+        setShowResultsLink(hasPublishedResults);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setShowVoteLink(false);
+          setShowResultsLink(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
 
   return (
     <nav className="navbar">
@@ -21,8 +68,8 @@ export default function Navbar() {
             <Link to="/elections">Elections</Link>
             <Link to="/published-candidates">Candidates</Link>
             <Link to="/apply">Apply</Link>
-            <Link to="/vote">Vote</Link>
-            <Link to="/results">Results</Link>
+            {showVoteLink && <Link to="/vote">Vote</Link>}
+            {showResultsLink && <Link to="/results">Results</Link>}
             <Link to="/applications">My Applications</Link>
           </>
         )}

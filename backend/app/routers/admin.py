@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from app import models, schemas, oauth2
 from app.database import get_db
@@ -167,6 +168,12 @@ def publish_result(
             detail="Election not found"
         )
 
+    if datetime.utcnow() < election.voting_end:
+        raise HTTPException(
+            status_code=400,
+            detail="Results can be published only after voting ends"
+        )
+
     election.result_visible = True
 
     db.commit()
@@ -251,7 +258,7 @@ def unpublish_candidates(
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
 
-    election.candidates_published = False
+    election.candidates_visible = False
     db.commit()
 
     return {"message": "Candidates unpublished successfully"}
@@ -268,7 +275,7 @@ def unpublish_result(
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
 
-    election.result_published = False
+    election.result_visible = False
     db.commit()
 
     return {"message": "Result unpublished successfully"}
@@ -304,6 +311,8 @@ def get_all_candidate_applications(
         if post.name not in result:
             result[post.name] = []
 
+        status = candidate_post.status or candidate.status or "pending"
+
         result[post.name].append({
             "id": candidate_post.id,
             "candidate_id": candidate.id,
@@ -312,7 +321,7 @@ def get_all_candidate_applications(
             "roll_number": student.roll_number,
             "college_email": student.college_email,
             "post_name": post.name,
-            "status": candidate_post.status,
+            "status": status,
             "applied_at": candidate.applied_at,
             "reviewed_at": candidate_post.reviewed_at,
             "rejection_reason": candidate_post.rejection_reason,
