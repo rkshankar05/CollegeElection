@@ -74,6 +74,43 @@ def create_election(
     return election
 
 
+@router.patch("/elections/{election_id}", response_model=schemas.ElectionOut)
+def update_election(
+    election_id: int,
+    election_data: schemas.ElectionCreate,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(oauth2.require_admin)
+):
+    election = db.query(models.Election).filter(
+        models.Election.id == election_id
+    ).first()
+
+    if not election:
+        raise HTTPException(
+            status_code=404,
+            detail="Election not found"
+        )
+
+    existing = db.query(models.Election).filter(
+        models.Election.id != election_id,
+        models.Election.year == election_data.year
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Another election already exists for this year"
+        )
+
+    for field, value in election_data.model_dump().items():
+        setattr(election, field, value)
+
+    db.commit()
+    db.refresh(election)
+
+    return election
+
+
 @router.post("/posts", response_model=schemas.PostOut)
 def create_post(
     post_data: schemas.PostCreate,
@@ -209,6 +246,56 @@ def get_all_students(
     ]
 
 
+@router.patch("/students/{student_id}")
+def update_student(
+    student_id: int,
+    data: schemas.StudentUpdate,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(oauth2.require_admin)
+):
+    student = db.query(models.Student).filter(
+        models.Student.id == student_id
+    ).first()
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    duplicate = db.query(models.Student).filter(
+        models.Student.id != student_id,
+        (
+            (models.Student.roll_number == data.roll_number) |
+            (models.Student.college_email == data.college_email)
+        )
+    ).first()
+
+    if duplicate:
+        raise HTTPException(
+            status_code=400,
+            detail="Another student already uses this roll number or college email"
+        )
+
+    student.name = data.name
+    student.roll_number = data.roll_number
+    student.college_email = data.college_email
+    student.has_active_backlog = data.has_active_backlog
+
+    if student.user:
+        student.user.name = data.name
+        student.user.email = data.college_email
+
+    db.commit()
+    db.refresh(student)
+
+    return {
+        "message": "Student updated successfully",
+        "id": student.id,
+        "name": student.user.name if student.user else student.name,
+        "college_email": student.college_email,
+        "roll_number": student.roll_number,
+        "has_active_backlog": student.has_active_backlog,
+    }
+
+
 @router.delete("/students/{student_id}")
 def delete_student(
     student_id: int,
@@ -320,6 +407,7 @@ def get_all_candidate_applications(
             "email": user.email,
             "roll_number": student.roll_number,
             "college_email": student.college_email,
+            "has_active_backlog": student.has_active_backlog,
             "post_name": post.name,
             "status": status,
             "applied_at": candidate.applied_at,

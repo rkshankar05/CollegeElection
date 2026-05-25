@@ -54,31 +54,40 @@ export default function AdminApplications() {
 
       {Object.keys(groups).map((postName) => (
         <div className="card" key={postName}>
-          <h2>{postName}</h2>
+          <div className="section-head">
+            <h2>{postName}</h2>
+            <span className="badge">{groups[postName].length} applications</span>
+          </div>
 
-          {groups[postName].map((c, index) => {
+          <div className="stack-list">
+            {groups[postName].map((c, index) => {
             const status = c.status || "pending";
 
             return (
-              <div className="row" key={`${postName}-${c.id}-${index}`}>
-                <div>
+              <article className="entity-card" key={`${postName}-${c.id}-${index}`}>
+                <div className="entity-main">
                   <h3>{c.candidate_name}</h3>
-                  <p>College Email: {c.college_email}</p>
-                  <p>Roll: {c.roll_number}</p>
-                  <p>Status: {status}</p>
+                  <p><b>Email:</b> {c.email || c.college_email || "N/A"}</p>
+                  <p><b>Roll:</b> {c.roll_number}</p>
+                  <p><b>Backlog:</b> {c.has_active_backlog ? "Yes" : "No"}</p>
                   <p>
-                    Applied:{" "}
+                    <b>Status:</b>{" "}
+                    <span className={`inline-status inline-status-${status}`}>
+                      {status}
+                    </span>
+                  </p>
+                  <p><b>Applied:</b>{" "}
                     {c.applied_at
                       ? new Date(c.applied_at).toLocaleString()
                       : "N/A"}
                   </p>
 
                   {c.rejection_reason && (
-                    <p>Reason: {c.rejection_reason}</p>
+                    <p><b>Reason:</b> {c.rejection_reason}</p>
                   )}
                 </div>
 
-                <div>
+                <div className="entity-actions">
                   <button
                     onClick={() => review(c.id, "approved")}
                     disabled={status === "approved"}
@@ -94,9 +103,10 @@ export default function AdminApplications() {
                     {status === "rejected" ? "Rejected" : "Reject"}
                   </button>
                 </div>
-              </div>
+              </article>
             );
           })}
+          </div>
         </div>
       ))}
     </div>

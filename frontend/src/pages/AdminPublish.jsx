@@ -4,6 +4,7 @@ import {
   publishCandidates,
   publishResult,
   unpublishCandidates,
+  unpublishResult,
 } from "../api/adminService";
 
 export default function AdminPublish() {
@@ -26,7 +27,23 @@ export default function AdminPublish() {
   }
 
   useEffect(() => {
-    getElections().then(setElections);
+    getElections().then((data) => {
+      const list = data || [];
+      setElections(list);
+
+      const now = new Date();
+      const activeElection =
+        list.find((election) => {
+          const appStart = new Date(election.application_start);
+          const voteEnd = new Date(election.voting_end);
+          return now >= appStart && now <= voteEnd;
+        }) || list[0];
+
+      if (activeElection) {
+        setElectionId(String(activeElection.id));
+        setSelectedElection(activeElection);
+      }
+    });
   }, []);
 
   function handleElectionChange(id) {
@@ -64,8 +81,38 @@ export default function AdminPublish() {
           return { ...prev, result_visible: true };
         }
 
+        if (action === unpublishResult) {
+          return { ...prev, result_visible: false };
+        }
+
         return prev;
       });
+
+      setElections((prev) =>
+        prev.map((item) => {
+          if (String(item.id) !== String(electionId)) {
+            return item;
+          }
+
+          if (action === publishCandidates) {
+            return { ...item, candidates_visible: true };
+          }
+
+          if (action === unpublishCandidates) {
+            return { ...item, candidates_visible: false };
+          }
+
+          if (action === publishResult) {
+            return { ...item, result_visible: true };
+          }
+
+          if (action === unpublishResult) {
+            return { ...item, result_visible: false };
+          }
+
+          return item;
+        })
+      );
     } catch (err) {
       setError(err.response?.data?.detail || "Action failed");
       setMsg("");
@@ -80,6 +127,13 @@ export default function AdminPublish() {
       {msg && <div className="success">{msg}</div>}
 
       <div className="card">
+        {selectedElection && (
+          <div className="dashboard-note-band">
+            <strong>Active Election</strong>
+            <span>{selectedElection.title} - {selectedElection.year}</span>
+          </div>
+        )}
+
         <label>Select Election</label>
 
         <select
@@ -138,7 +192,12 @@ export default function AdminPublish() {
               </p>
 
               {isResultPublished(selectedElection) ? (
-                <button disabled>Result Already Published</button>
+                <button
+                  className="danger"
+                  onClick={() => run(unpublishResult, "Result unpublished")}
+                >
+                  Unpublish Result
+                </button>
               ) : !hasVotingEnded(selectedElection) ? (
                 <button disabled>Publish Result After Voting Ends</button>
               ) : (

@@ -71,24 +71,36 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1>Login</h1>
+        <div className="auth-card-top">
+          <span className="auth-eyebrow">Student Access</span>
+          <h1>Welcome Back</h1>
+          <p className="auth-subtitle">
+            Sign in to apply, vote during the live window, and track your election activity.
+          </p>
+        </div>
 
         {error && <div className="error">{error}</div>}
 
-        <form onSubmit={submit}>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+        <form onSubmit={submit} className="auth-form">
+          <div className="auth-field">
+            <label>Email</label>
+            <input
+              type="email"
+              placeholder="Enter your college email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div className="auth-field">
+            <label>Password</label>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
 
           <button className="full-btn">Login</button>
         </form>

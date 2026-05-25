@@ -37,7 +37,7 @@ def submit_votes(
             detail="Election not found"
         )
 
-    now = datetime.utcnow()
+    now = datetime.now()
 
     if now < election.voting_start:
         raise HTTPException(

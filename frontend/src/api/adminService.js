@@ -44,6 +44,11 @@ export async function createElection(data) {
   return res.data;
 }
 
+export async function updateElection(electionId, data) {
+  const res = await api.patch(`/admin/elections/${electionId}`, data);
+  return res.data;
+}
+
 export async function createPost(data) {
   const res =
     await api.post(
@@ -61,6 +66,11 @@ export async function getAllStudents() {
 
 export async function deleteStudent(studentId) {
   const res = await api.delete(`/admin/students/${studentId}`);
+  return res.data;
+}
+
+export async function updateStudent(studentId, data) {
+  const res = await api.patch(`/admin/students/${studentId}`, data);
   return res.data;
 }
 

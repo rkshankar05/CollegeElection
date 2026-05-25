@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getElections, getElectionPosts } from "../api/electionService";
 import { applyCandidate } from "../api/candidateService";
 
 export default function Apply() {
+  const [searchParams] = useSearchParams();
   const [elections, setElections] = useState([]);
   const [posts, setPosts] = useState([]);
   const [electionId, setElectionId] = useState("");
@@ -14,18 +16,30 @@ export default function Apply() {
     loadElections();
   }, []);
 
+  useEffect(() => {
+    const presetElectionId = searchParams.get("election");
+
+    if (presetElectionId) {
+      loadPostsForElection(presetElectionId);
+    }
+  }, [searchParams]);
+
   async function loadElections() {
     try {
       const data = await getElections();
       setElections(data);
+
+      const presetElectionId = searchParams.get("election");
+      if (presetElectionId && data.some((election) => String(election.id) === String(presetElectionId))) {
+        setElectionId(String(presetElectionId));
+      }
     } catch {
       setError("Failed to load elections");
     }
   }
 
-  async function handleElectionChange(e) {
-    const id = e.target.value;
-    setElectionId(id);
+  async function loadPostsForElection(id) {
+    setElectionId(String(id));
     setSelectedPosts([]);
     setMsg("");
     setError("");
@@ -41,6 +55,10 @@ export default function Apply() {
     } catch {
       setError("Failed to load posts");
     }
+  }
+
+  async function handleElectionChange(e) {
+    await loadPostsForElection(e.target.value);
   }
 
   function togglePost(postId) {

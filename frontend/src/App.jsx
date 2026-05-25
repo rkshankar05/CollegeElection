@@ -16,6 +16,7 @@ import AdminApplications from "./pages/AdminApplications";
 import Vote from "./pages/Vote";
 import Results from "./pages/Results";
 import PublishedCandidates from "./pages/PublishedCandidates";
+import Profile from "./pages/Profile";
 
 function Home() {
   if (!isLoggedIn()) {
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/vote" element={<Vote />} />
         <Route path="/results" element={<Results />} />
         <Route path="/published-candidates" element={<PublishedCandidates />} />
+        <Route path="/profile" element={<Profile />} />
   
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

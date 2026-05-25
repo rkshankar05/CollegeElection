@@ -21,10 +21,6 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column(
         "candidate_posts",
-        sa.Column("status", sa.String(), nullable=True, server_default="pending"),
-    )
-    op.add_column(
-        "candidate_posts",
         sa.Column("reviewed_at", sa.DateTime(), nullable=True),
     )
     op.add_column(
@@ -50,4 +46,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_column("candidate_posts", "rejection_reason")
     op.drop_column("candidate_posts", "reviewed_at")
-    op.drop_column("candidate_posts", "status")

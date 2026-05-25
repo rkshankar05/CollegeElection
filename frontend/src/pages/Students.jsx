@@ -2,13 +2,20 @@ import { useEffect, useState } from "react";
 import {
   getAllStudents,
   deleteStudent,
-  updateCandidateBlock,
+  updateStudent,
 } from "../api/adminService";
 
 export default function Students() {
   const [students, setStudents] = useState([]);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({
+    name: "",
+    roll_number: "",
+    college_email: "",
+    has_active_backlog: false,
+  });
 
   async function loadStudents() {
     try {
@@ -22,6 +29,62 @@ export default function Students() {
   useEffect(() => {
     loadStudents();
   }, []);
+
+  function startEdit(student) {
+    setEditingId(student.id);
+    setForm({
+      name: student.name || "",
+      roll_number: student.roll_number || "",
+      college_email: student.college_email || "",
+      has_active_backlog: !!student.has_active_backlog,
+    });
+    setError("");
+    setMsg("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm({
+      name: "",
+      roll_number: "",
+      college_email: "",
+      has_active_backlog: false,
+    });
+  }
+
+  async function saveEdit(studentId) {
+    if (!form.name || !form.roll_number || !form.college_email) {
+      setError("Name, roll number and college email are required");
+      setMsg("");
+      return;
+    }
+
+    try {
+      const updated = await updateStudent(studentId, form);
+
+      setStudents((prev) =>
+        prev.map((student) =>
+          student.id === studentId
+            ? {
+                ...student,
+                name: updated.name,
+                roll_number: updated.roll_number,
+                college_email: updated.college_email,
+                email: updated.college_email,
+                has_active_backlog: updated.has_active_backlog,
+              }
+            : student
+        )
+      );
+
+      setMsg("Student updated successfully");
+      setError("");
+      cancelEdit();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Update failed");
+      setMsg("");
+    }
+  }
 
   async function removeStudent(id) {
     if (!confirm("Delete this student?")) return;
@@ -41,38 +104,6 @@ export default function Students() {
     }
   }
 
-  async function toggleBlock(student) {
-    try {
-      const newValue = !student.candidate_blocked;
-
-      let reason = null;
-
-      if (newValue) {
-        reason = prompt("Reason for blocking?") || "Blocked by admin";
-      }
-
-      await updateCandidateBlock(student.id, newValue, reason);
-
-      setStudents((prev) =>
-        prev.map((s) =>
-          s.id === student.id
-            ? {
-                ...s,
-                candidate_blocked: newValue,
-                block_reason: reason,
-              }
-            : s
-        )
-      );
-
-      setMsg(newValue ? "Student blocked" : "Student unblocked");
-      setError("");
-    } catch (err) {
-      setError(err.response?.data?.detail || "Update failed");
-      setMsg("");
-    }
-  }
-
   return (
     <div>
       <h1>All Students</h1>
@@ -84,46 +115,81 @@ export default function Students() {
         {students.length === 0 ? (
           <p>No students found.</p>
         ) : (
-          students.map((s) => (
-            <div className="row" key={s.id}>
-              <div>
-                <h3>{s.name || "Not Registered"}</h3>
+          <div className="stack-list">
+            {students.map((s) => (
+              <article className="entity-card student-entity-card" key={s.id}>
+                <div className="entity-main">
+                  <div className="student-card-head">
+                    <h3>{s.name || "Not Registered"}</h3>
+                  </div>
 
-                <p>
-                  Registration:{" "}
-                  <b>{s.registered ? "Registered" : "Not Registered"}</b>
-                </p>
+                  <div className="detail-grid">
+                    <p><b>College Email:</b> {s.college_email}</p>
+                    <p><b>Roll:</b> {s.roll_number}</p>
+                    <p><b>Backlog:</b> {s.has_active_backlog ? "Yes" : "No"}</p>
+                    {s.email && s.email !== s.college_email && (
+                      <p><b>Email:</b> {s.email}</p>
+                    )}
+                  </div>
 
-                <p>User ID: {s.user_id || "N/A"}</p>
-                <p>Email: {s.email || "N/A"}</p>
-                <p>College Email: {s.college_email}</p>
-                <p>Roll: {s.roll_number}</p>
-                <p>Role: {s.role || "N/A"}</p>
-                <p>Verified: {s.is_verified ? "Yes" : "No"}</p>
-                <p>Backlog: {s.has_active_backlog ? "Yes" : "No"}</p>
+                  {editingId === s.id && (
+                    <div className="inline-editor">
+                      <label>Name</label>
+                      <input
+                        value={form.name}
+                        onChange={(e) =>
+                          setForm({ ...form, name: e.target.value })
+                        }
+                      />
 
-                <p>
-                  In Election:{" "}
-                  <b>{s.candidate_blocked ? "Not Allowed" : "Allowed"}</b>
-                </p>
+                      <label>Roll Number</label>
+                      <input
+                        value={form.roll_number}
+                        onChange={(e) =>
+                          setForm({ ...form, roll_number: e.target.value })
+                        }
+                      />
 
-                {s.block_reason && <p>Reason: {s.block_reason}</p>}
-              </div>
+                      <label>College Email</label>
+                      <input
+                        type="email"
+                        value={form.college_email}
+                        onChange={(e) =>
+                          setForm({ ...form, college_email: e.target.value })
+                        }
+                      />
 
-              <div>
-                <button onClick={() => toggleBlock(s)}>
-                  {s.candidate_blocked ? "Unblock" : "Block"}
-                </button>
+                      <div className="action-row">
+                        <button onClick={() => saveEdit(s.id)}>Save</button>
+                        <button className="ghost-btn" onClick={cancelEdit}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                <button
-                  className="danger"
-                  onClick={() => removeStudent(s.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))
+                <div className="student-status-col">
+                  <span className={`inline-status ${s.registered ? "inline-status-approved" : "inline-status-pending"}`}>
+                    {s.registered ? "Registered" : "Not Registered"}
+                  </span>
+                </div>
+
+                <div className="entity-actions entity-actions-compact">
+                  <button onClick={() => startEdit(s)}>
+                    {editingId === s.id ? "Editing" : "Edit"}
+                  </button>
+
+                  <button
+                    className="danger"
+                    onClick={() => removeStudent(s.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
         )}
       </div>
     </div>

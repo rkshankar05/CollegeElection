@@ -66,7 +66,8 @@ export default function Vote() {
     try {
       await submitVote({
         election_id: Number(electionId),
-        votes: selected,
+        // Transform { postName: { post_id, candidate_id } } → [{ post_id, candidate_id }]
+        votes: Object.values(selected),
       });
 
       setMsg("Vote submitted successfully");
@@ -84,7 +85,12 @@ export default function Vote() {
       {error && <div className="error">{error}</div>}
       {msg && <div className="success">{msg}</div>}
 
-      <form className="card" onSubmit={submit}>
+      <form className="card form-shell" onSubmit={submit}>
+        <div className="section-head">
+          <h2>Select Election</h2>
+          <p className="hint">Choose one approved candidate for each available post.</p>
+        </div>
+
         <select
           value={electionId}
           onChange={(e) => loadCandidates(e.target.value)}
@@ -100,28 +106,40 @@ export default function Vote() {
 
         {Object.keys(groups).map((postName) => (
           <div className="post-section" key={postName}>
-            <h2>{postName}</h2>
+            <div className="section-head">
+              <h2>{postName}</h2>
+              <span className="badge">{groups[postName].length} options</span>
+            </div>
 
             <div className="candidate-grid">
               {groups[postName].map((c, index) => (
-                <label className="candidate-card vote-card" key={index}>
-                  <input
-                    type="radio"
-                    name={`post-${postName}`}
-                    checked={selected[postName] === c.candidate_id}
-                    onChange={() =>
-                      setSelected({
-                        ...selected,
-                        [postName]: c.candidate_id,
-                      })
-                    }
-                  />
-
-                  <div>
+                <div
+                  className={`candidate-card vote-card ${
+                    selected[postName]?.candidate_id === c.candidate_id ? "selected" : ""
+                  }`}
+                  key={index}
+                >
+                  <div className="vote-card-copy">
                     <h3>{c.name || "Unknown Candidate"}</h3>
                     <p>{c.email || "Email not available"}</p>
                   </div>
-                </label>
+
+                  <button
+                    type="button"
+                    className={`vote-select-btn ${
+                      selected[postName]?.candidate_id === c.candidate_id ? "active" : ""
+                    }`}
+                    onClick={() =>
+                      setSelected({
+                        ...selected,
+                        // Store both post_id and candidate_id so submit payload is correct
+                        [postName]: { post_id: c.post_id, candidate_id: c.candidate_id },
+                      })
+                    }
+                  >
+                    {selected[postName]?.candidate_id === c.candidate_id ? "Selected" : "Select"}
+                  </button>
+                </div>
               ))}
             </div>
           </div>

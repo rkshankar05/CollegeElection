@@ -23,6 +23,7 @@ def get_my_applications(
         db.query(
             models.Candidate.id,
             models.User.name,
+            models.Election.id,
             models.Election.title,
             models.Candidate.applied_at,
             models.CandidatePost.id,
@@ -52,20 +53,21 @@ def get_my_applications(
             applications[candidate_id] = {
                 "id": candidate_id,
                 "candidate_name": r[1],
-                "election": r[2],
+                "election_id": r[2],
+                "election": r[3],
                 "post": [],
                 "posts": [],
-                "applied_at": r[3],
+                "applied_at": r[4],
             }
 
-        applications[candidate_id]["post"].append(r[5])
+        applications[candidate_id]["post"].append(r[6])
         applications[candidate_id]["posts"].append(
             {
-                "candidate_post_id": r[4],
-                "post_name": r[5],
-                "status": r[6],
-                "reviewed_at": r[7],
-                "rejection_reason": r[8],
+                "candidate_post_id": r[5],
+                "post_name": r[6],
+                "status": r[7],
+                "reviewed_at": r[8],
+                "rejection_reason": r[9],
             }
         )
 

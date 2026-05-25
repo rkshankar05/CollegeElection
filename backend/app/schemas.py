@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 
 
 # ---------------- AUTH ----------------
@@ -33,6 +33,28 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
+class ActivePostOut(BaseModel):
+    election_id: int
+    election_title: str
+    election_year: int
+    post_id: int
+    post_name: str
+    total_votes: int
+
+
+class UserProfileOut(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    role: str
+    roll_number: Optional[str] = None
+    college_email: Optional[EmailStr] = None
+    has_active_backlog: Optional[bool] = None
+    candidate_blocked: Optional[bool] = None
+    block_reason: Optional[str] = None
+    active_posts: List[ActivePostOut] = []
+
+
 # ---------------- ELECTION ----------------
 
 class ElectionCreate(BaseModel):
@@ -42,6 +64,22 @@ class ElectionCreate(BaseModel):
     application_deadline: datetime
     voting_start: datetime
     voting_end: datetime
+
+    @model_validator(mode="after")
+    def validate_election_window(self):
+        if self.application_deadline <= self.application_start:
+            raise ValueError("Application deadline must be after application start")
+
+        if self.voting_end <= self.voting_start:
+            raise ValueError("Voting end must be after voting start")
+
+        if self.voting_start <= self.application_deadline:
+            raise ValueError("Voting must start after the application deadline")
+
+        if self.voting_start.date() != self.voting_end.date():
+            raise ValueError("Voting start and end must be on the same date")
+
+        return self
 
 
 class ElectionOut(BaseModel):
@@ -105,6 +143,13 @@ class CandidateOut(BaseModel):
 class CandidateBlockUpdate(BaseModel):
     candidate_blocked: bool
     block_reason: Optional[str] = None
+
+
+class StudentUpdate(BaseModel):
+    name: str
+    roll_number: str
+    college_email: EmailStr
+    has_active_backlog: bool = False
 
 
 # ---------------- VOTE ----------------
