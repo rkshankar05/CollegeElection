@@ -66,7 +66,7 @@ def get_election_posts(
 
 
 @router.get("/{election_id}/published-candidates")
-def get_published_candidates_by_post(
+def get_published_candidates(
     election_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.get_current_user)
@@ -76,10 +76,7 @@ def get_published_candidates_by_post(
     ).first()
 
     if not election:
-        raise HTTPException(
-            status_code=404,
-            detail="Election not found"
-        )
+        raise HTTPException(status_code=404, detail="Election not found")
 
     if not election.candidates_visible:
         raise HTTPException(
@@ -87,40 +84,29 @@ def get_published_candidates_by_post(
             detail="Candidate list is not published yet"
         )
 
-    posts = db.query(models.Post).filter(
-        models.Post.election_id == election_id
-    ).order_by(models.Post.display_order.asc()).all()
-
-    response = []
-
-    for post in posts:
-        candidate_posts = (
-            db.query(models.CandidatePost)
-            .join(models.Candidate)
-            .join(models.User, models.User.id == models.Candidate.user_id)
-            .filter(
-                models.CandidatePost.post_id == post.id,
-                models.Candidate.election_id == election_id,
-                models.Candidate.status == "approved"
-            )
-            .order_by(models.Candidate.applied_at.asc())
-            .limit(5)
-            .all()
+    rows = (
+        db.query(
+            models.User.name,
+            models.User.email,
+            models.Post.name
         )
+        .select_from(models.Candidate)
+        .join(models.User, models.User.id == models.Candidate.user_id)
+        .join(models.CandidatePost, models.CandidatePost.candidate_id == models.Candidate.id)
+        .join(models.Post, models.Post.id == models.CandidatePost.post_id)
+        .filter(
+            models.Candidate.election_id == election_id,
+            models.Candidate.status == "approved"
+        )
+        .order_by(models.Post.display_order.asc(), models.User.name.asc())
+        .all()
+    )
 
-        candidates = []
-
-        for cp in candidate_posts:
-            candidates.append({
-                "candidate_id": cp.candidate.id,
-                "name": cp.candidate.user.name,
-                "applied_at": cp.candidate.applied_at
-            })
-
-        response.append({
-            "post_id": post.id,
-            "post_name": post.name,
-            "candidates": candidates
-        })
-
-    return response
+    return [
+        {
+            "name": name,
+            "email": email,
+            "post_name": post_name
+        }
+        for name, email, post_name in rows
+    ]

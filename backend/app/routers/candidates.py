@@ -12,6 +12,7 @@ router = APIRouter(
     tags=["Candidates"]
 )
 
+
 @router.get("/my-applications")
 def get_my_applications(
     db: Session = Depends(get_db),
@@ -30,7 +31,10 @@ def get_my_applications(
         )
         .select_from(models.Candidate)
         .join(models.User, models.User.id == models.Candidate.user_id)
-        .join(models.CandidatePost, models.CandidatePost.candidate_id == models.Candidate.id)
+        .join(
+            models.CandidatePost,
+            models.CandidatePost.candidate_id == models.Candidate.id
+        )
         .join(models.Post, models.Post.id == models.CandidatePost.post_id)
         .join(models.Election, models.Election.id == models.Candidate.election_id)
         .filter(models.Candidate.user_id == current_user.id)
@@ -56,6 +60,7 @@ def get_my_applications(
         applications[candidate_id]["post"].append(r[3])
 
     return list(applications.values())
+
 
 @router.post("/apply")
 def apply_for_candidate(
@@ -138,7 +143,6 @@ def apply_for_candidate(
             detail="You have already applied for this election"
         )
 
-    # Check all post IDs belong to this election
     posts = db.query(models.Post).filter(
         models.Post.id.in_(data.post_ids),
         models.Post.election_id == data.election_id
@@ -221,8 +225,15 @@ def review_candidate(
         models.CandidatePost.candidate_id == candidate.id
     ).all()
 
-    # If approving, make sure no selected post already has 5 approved candidates
+    if not candidate_posts:
+        raise HTTPException(
+            status_code=400,
+            detail="Candidate has no selected post"
+        )
+
     if data.status == "approved":
+        available_posts = []
+
         for cp in candidate_posts:
             approved_count = (
                 db.query(models.CandidatePost)
@@ -234,23 +245,29 @@ def review_candidate(
                 .count()
             )
 
-            if approved_count >= 5:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Post {cp.post_id} already has 5 approved candidates"
-                )
+            if approved_count < 5:
+                available_posts.append(cp.post_id)
 
-    candidate.status = data.status
-    candidate.reviewed_at = datetime.utcnow()
+        if not available_posts:
+            raise HTTPException(
+                status_code=400,
+                detail="All selected posts already have 5 approved candidates"
+            )
 
-    if data.status == "rejected":
+        candidate.status = "approved"
+        candidate.reviewed_at = datetime.utcnow()
+        candidate.rejection_reason = None
+
+    else:
+        candidate.status = "rejected"
+        candidate.reviewed_at = datetime.utcnow()
         candidate.rejection_reason = data.rejection_reason or "Rejected by admin"
 
     db.commit()
     db.refresh(candidate)
 
     return {
-        "message": f"Candidate {data.status} successfully",
+        "message": f"Candidate {candidate.status} successfully",
         "candidate_id": candidate.id,
         "status": candidate.status
     }
@@ -278,9 +295,36 @@ def get_public_candidates(
             detail="Candidate list is not published yet"
         )
 
-    candidates = db.query(models.Candidate).filter(
-        models.Candidate.election_id == election_id,
-        models.Candidate.status == "approved"
-    ).order_by(models.Candidate.applied_at.asc()).all()
+    rows = (
+        db.query(
+            models.User.name,
+            models.User.email,
+            models.Post.name
+        )
+        .select_from(models.Candidate)
+        .join(models.User, models.User.id == models.Candidate.user_id)
+        .join(
+            models.CandidatePost,
+            models.CandidatePost.candidate_id == models.Candidate.id
+        )
+        .join(models.Post, models.Post.id == models.CandidatePost.post_id)
+        .filter(
+            models.Candidate.election_id == election_id,
+            models.Candidate.status == "approved"
+        )
+        .order_by(
+            models.Post.display_order.asc(),
+            models.User.name.asc()
+        )
+        .all()
+    )
 
-    return candidates
+    return [
+        {
+            "name": name,
+            "email": email,
+            "post_name": post_name
+        }
+        for name, email, post_name in rows
+    ]
+
