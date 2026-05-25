@@ -86,6 +86,9 @@ def get_published_candidates(
 
     rows = (
         db.query(
+            models.Candidate.id.label("candidate_id"),
+            models.CandidatePost.id.label("candidate_post_id"),
+            models.Post.id.label("post_id"),
             models.User.name,
             models.User.email,
             models.Post.name
@@ -96,7 +99,7 @@ def get_published_candidates(
         .join(models.Post, models.Post.id == models.CandidatePost.post_id)
         .filter(
             models.Candidate.election_id == election_id,
-            models.Candidate.status == "approved"
+            models.CandidatePost.status == "approved"
         )
         .order_by(models.Post.display_order.asc(), models.User.name.asc())
         .all()
@@ -104,9 +107,12 @@ def get_published_candidates(
 
     return [
         {
+            "candidate_id": candidate_id,
+            "candidate_post_id": candidate_post_id,
+            "post_id": post_id,
             "name": name,
             "email": email,
             "post_name": post_name
         }
-        for name, email, post_name in rows
+        for candidate_id, candidate_post_id, post_id, name, email, post_name in rows
     ]

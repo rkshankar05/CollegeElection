@@ -94,9 +94,7 @@ class CandidateOut(BaseModel):
     id: int
     user_id: int
     election_id: int
-    status: str
     applied_at: datetime
-    rejection_reason: Optional[str]
 
     class Config:
         from_attributes = True

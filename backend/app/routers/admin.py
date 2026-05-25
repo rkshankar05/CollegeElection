@@ -21,7 +21,8 @@ def add_student(
     admin: models.User = Depends(oauth2.require_admin)
 ):
     existing = db.query(models.Student).filter(
-        models.Student.roll_number == roll_number
+        (models.Student.roll_number == roll_number) |
+        (models.Student.college_email == college_email)
     ).first()
 
     if existing:
@@ -185,7 +186,7 @@ def get_all_students(
     return [
         {
             "id": s.id,
-            "name": s.user.name if s.user else "Not Registered",
+            "name": s.user.name if s.user else (s.name or "Not Registered"),
             "registered": True if s.user else False,
             "user_id": s.user_id,
             "email": s.user.email if s.user else None,
@@ -281,6 +282,7 @@ def get_all_candidate_applications(
     rows = (
         db.query(
             models.Candidate,
+            models.CandidatePost,
             models.User,
             models.Student,
             models.Post
@@ -298,21 +300,22 @@ def get_all_candidate_applications(
 
     result = {}
 
-    for candidate, user, student, post in rows:
+    for candidate, candidate_post, user, student, post in rows:
         if post.name not in result:
             result[post.name] = []
 
         result[post.name].append({
-            "id": candidate.id,
+            "id": candidate_post.id,
+            "candidate_id": candidate.id,
             "candidate_name": user.name,
             "email": user.email,
             "roll_number": student.roll_number,
             "college_email": student.college_email,
             "post_name": post.name,
-            "status": candidate.status,
+            "status": candidate_post.status,
             "applied_at": candidate.applied_at,
-            "reviewed_at": candidate.reviewed_at,
-            "rejection_reason": candidate.rejection_reason,
+            "reviewed_at": candidate_post.reviewed_at,
+            "rejection_reason": candidate_post.rejection_reason,
         })
 
     return result

@@ -23,11 +23,12 @@ def get_my_applications(
             models.Candidate.id,
             models.User.name,
             models.Election.title,
-            models.Post.name,
-            models.Candidate.status,
             models.Candidate.applied_at,
-            models.Candidate.reviewed_at,
-            models.Candidate.rejection_reason
+            models.CandidatePost.id,
+            models.Post.name,
+            models.CandidatePost.status,
+            models.CandidatePost.reviewed_at,
+            models.CandidatePost.rejection_reason
         )
         .select_from(models.Candidate)
         .join(models.User, models.User.id == models.Candidate.user_id)
@@ -48,16 +49,33 @@ def get_my_applications(
 
         if candidate_id not in applications:
             applications[candidate_id] = {
+                "id": candidate_id,
                 "candidate_name": r[1],
                 "election": r[2],
                 "post": [],
-                "status": r[4],
-                "applied_at": r[5],
-                "reviewed_at": r[6],
-                "rejection_reason": r[7]
+                "posts": [],
+                "applied_at": r[3],
             }
 
-        applications[candidate_id]["post"].append(r[3])
+        applications[candidate_id]["post"].append(r[5])
+        applications[candidate_id]["posts"].append(
+            {
+                "candidate_post_id": r[4],
+                "post_name": r[5],
+                "status": r[6],
+                "reviewed_at": r[7],
+                "rejection_reason": r[8],
+            }
+        )
+
+    for application in applications.values():
+        statuses = {post["status"] for post in application["posts"]}
+        application["status"] = statuses.pop() if len(statuses) == 1 else "mixed"
+        reviewed_at_values = [
+            post["reviewed_at"] for post in application["posts"] if post["reviewed_at"]
+        ]
+        application["reviewed_at"] = max(reviewed_at_values) if reviewed_at_values else None
+        application["rejection_reason"] = None
 
     return list(applications.values())
 
@@ -156,8 +174,7 @@ def apply_for_candidate(
 
     candidate = models.Candidate(
         user_id=current_user.id,
-        election_id=data.election_id,
-        status="pending"
+        election_id=data.election_id
     )
 
     db.add(candidate)
@@ -167,7 +184,8 @@ def apply_for_candidate(
     for post_id in set(data.post_ids):
         candidate_post = models.CandidatePost(
             candidate_id=candidate.id,
-            post_id=post_id
+            post_id=post_id,
+            status="pending"
         )
         db.add(candidate_post)
 
@@ -185,16 +203,32 @@ def get_all_candidate_applications(
     db: Session = Depends(get_db),
     admin: models.User = Depends(oauth2.require_admin)
 ):
-    candidates = db.query(models.Candidate).filter(
-        models.Candidate.election_id == election_id
-    ).order_by(models.Candidate.applied_at.asc()).all()
+    rows = (
+        db.query(
+            models.CandidatePost.id.label("candidate_post_id"),
+            models.Candidate.id.label("candidate_id"),
+            models.Candidate.user_id,
+            models.Candidate.election_id,
+            models.Candidate.applied_at,
+            models.Post.id.label("post_id"),
+            models.Post.name.label("post_name"),
+            models.CandidatePost.status,
+            models.CandidatePost.reviewed_at,
+            models.CandidatePost.rejection_reason,
+        )
+        .join(models.Candidate, models.Candidate.id == models.CandidatePost.candidate_id)
+        .join(models.Post, models.Post.id == models.CandidatePost.post_id)
+        .filter(models.Candidate.election_id == election_id)
+        .order_by(models.Candidate.applied_at.asc(), models.Post.display_order.asc())
+        .all()
+    )
 
-    return candidates
+    return [row._asdict() for row in rows]
 
 
-@router.patch("/admin/{candidate_id}/review")
+@router.patch("/admin/{candidate_post_id}/review")
 def review_candidate(
-    candidate_id: int,
+    candidate_post_id: int,
     data: schemas.CandidateReview,
     db: Session = Depends(get_db),
     admin: models.User = Depends(oauth2.require_admin)
@@ -205,71 +239,54 @@ def review_candidate(
             detail="Status must be approved or rejected"
         )
 
-    candidate = db.query(models.Candidate).filter(
-        models.Candidate.id == candidate_id
+    candidate_post = db.query(models.CandidatePost).filter(
+        models.CandidatePost.id == candidate_post_id
     ).first()
 
-    if not candidate:
+    if not candidate_post:
         raise HTTPException(
             status_code=404,
-            detail="Candidate not found"
+            detail="Candidate post not found"
         )
 
-    if candidate.status != "pending":
+    if candidate_post.status != "pending":
         raise HTTPException(
             status_code=400,
-            detail="Candidate already reviewed"
-        )
-
-    candidate_posts = db.query(models.CandidatePost).filter(
-        models.CandidatePost.candidate_id == candidate.id
-    ).all()
-
-    if not candidate_posts:
-        raise HTTPException(
-            status_code=400,
-            detail="Candidate has no selected post"
+            detail="Candidate post already reviewed"
         )
 
     if data.status == "approved":
-        available_posts = []
-
-        for cp in candidate_posts:
-            approved_count = (
-                db.query(models.CandidatePost)
-                .join(models.Candidate)
-                .filter(
-                    models.CandidatePost.post_id == cp.post_id,
-                    models.Candidate.status == "approved"
-                )
-                .count()
+        approved_count = (
+            db.query(models.CandidatePost)
+            .filter(
+                models.CandidatePost.post_id == candidate_post.post_id,
+                models.CandidatePost.status == "approved"
             )
+            .count()
+        )
 
-            if approved_count < 5:
-                available_posts.append(cp.post_id)
-
-        if not available_posts:
+        if approved_count >= 5:
             raise HTTPException(
                 status_code=400,
-                detail="All selected posts already have 5 approved candidates"
+                detail="This post already has 5 approved candidates"
             )
 
-        candidate.status = "approved"
-        candidate.reviewed_at = datetime.utcnow()
-        candidate.rejection_reason = None
+        candidate_post.status = "approved"
+        candidate_post.reviewed_at = datetime.utcnow()
+        candidate_post.rejection_reason = None
 
     else:
-        candidate.status = "rejected"
-        candidate.reviewed_at = datetime.utcnow()
-        candidate.rejection_reason = data.rejection_reason or "Rejected by admin"
+        candidate_post.status = "rejected"
+        candidate_post.reviewed_at = datetime.utcnow()
+        candidate_post.rejection_reason = data.rejection_reason or "Rejected by admin"
 
     db.commit()
-    db.refresh(candidate)
+    db.refresh(candidate_post)
 
     return {
-        "message": f"Candidate {candidate.status} successfully",
-        "candidate_id": candidate.id,
-        "status": candidate.status
+        "message": f"Candidate post {candidate_post.status} successfully",
+        "candidate_post_id": candidate_post.id,
+        "status": candidate_post.status
     }
 
 
@@ -297,6 +314,9 @@ def get_public_candidates(
 
     rows = (
         db.query(
+            models.Candidate.id.label("candidate_id"),
+            models.CandidatePost.id.label("candidate_post_id"),
+            models.Post.id.label("post_id"),
             models.User.name,
             models.User.email,
             models.Post.name
@@ -310,7 +330,7 @@ def get_public_candidates(
         .join(models.Post, models.Post.id == models.CandidatePost.post_id)
         .filter(
             models.Candidate.election_id == election_id,
-            models.Candidate.status == "approved"
+            models.CandidatePost.status == "approved"
         )
         .order_by(
             models.Post.display_order.asc(),
@@ -321,10 +341,12 @@ def get_public_candidates(
 
     return [
         {
+            "candidate_id": candidate_id,
+            "candidate_post_id": candidate_post_id,
+            "post_id": post_id,
             "name": name,
             "email": email,
             "post_name": post_name
         }
-        for name, email, post_name in rows
+        for candidate_id, candidate_post_id, post_id, name, email, post_name in rows
     ]
-

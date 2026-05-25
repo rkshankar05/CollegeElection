@@ -86,8 +86,7 @@ def submit_votes(
 
         candidate = db.query(models.Candidate).filter(
             models.Candidate.id == vote_item.candidate_id,
-            models.Candidate.election_id == data.election_id,
-            models.Candidate.status == "approved"
+            models.Candidate.election_id == data.election_id
         ).first()
 
         if not candidate:
@@ -98,13 +97,14 @@ def submit_votes(
 
         candidate_post = db.query(models.CandidatePost).filter(
             models.CandidatePost.candidate_id == vote_item.candidate_id,
-            models.CandidatePost.post_id == vote_item.post_id
+            models.CandidatePost.post_id == vote_item.post_id,
+            models.CandidatePost.status == "approved"
         ).first()
 
         if not candidate_post:
             raise HTTPException(
                 status_code=400,
-                detail="Candidate does not belong to selected post"
+                detail="Candidate is not approved for the selected post"
             )
 
     # Insert all votes together
