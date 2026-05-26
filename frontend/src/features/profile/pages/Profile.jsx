@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { getProfile } from "../features/auth/services/authService";
+
+import { getProfile } from "../../auth/services/authService";
+import "../styles/profile.css";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
@@ -41,10 +43,16 @@ export default function Profile() {
               </div>
 
               <div className="profile-badge-stack">
-                <span className={`status-pill ${profile.candidate_blocked ? "status-pill-blocked" : "status-pill-open"}`}>
-                  {profile.candidate_blocked ? "Candidate Access Blocked" : "Candidate Access Allowed"}
+                <span
+                  className={`status-pill ${profile.candidate_blocked ? "status-pill-blocked" : "status-pill-open"}`}
+                >
+                  {profile.candidate_blocked
+                    ? "Candidate Access Blocked"
+                    : "Candidate Access Allowed"}
                 </span>
-                <span className={`status-pill ${profile.has_active_backlog ? "status-pill-warning" : "status-pill-open"}`}>
+                <span
+                  className={`status-pill ${profile.has_active_backlog ? "status-pill-warning" : "status-pill-open"}`}
+                >
                   {profile.has_active_backlog ? "Backlog Active" : "No Backlog"}
                 </span>
               </div>

@@ -7,16 +7,16 @@ import Elections from "./features/elections/pages/Elections";
 import Posts from "./pages/Posts";
 import Apply from "./features/candidates/pages/Apply";
 import MyApplications from "./features/candidates/pages/MyApplications";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminPublish from "./pages/AdminPublish";
+import AdminDashboard from "./features/admin/pages/AdminDashboard";
+import AdminPublish from "./features/admin/pages/AdminPublish";
 import { isLoggedIn, getRole } from "./utils/auth";
 
-import Students from "./pages/Students";
-import AdminApplications from "./pages/AdminApplications";
+import Students from "./features/admin/pages/Students";
+import AdminApplications from "./features/admin/pages/AdminApplications";
 import Vote from "./features/voting/pages/Vote";
 import Results from "./pages/Results";
 import PublishedCandidates from "./features/candidates/pages/PublishedCandidates";
-import Profile from "./pages/Profile";
+import Profile from "./features/profile/pages/Profile";
 
 function Home() {
   if (!isLoggedIn()) {
