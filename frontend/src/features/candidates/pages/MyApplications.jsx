@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getMyApplications } from "../services/candidateService";
-import "../styles/candidates.css";
+import "../../../styles/candidate.css";
 
 export default function MyApplications() {
   const [applications, setApplications] = useState([]);

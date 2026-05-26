@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getElections, getElectionPosts } from "../../elections/services/electionService";
 import { applyCandidate } from "../services/candidateService";
-import "../styles/candidates.css";
+import "../../../styles/candidate.css";
 
 export default function Apply() {
   const [searchParams] = useSearchParams();

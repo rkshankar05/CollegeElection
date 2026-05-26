@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getElections } from "../services/electionService";
-import { getMyApplications } from "../../../api/candidateService";
-import "../styles/elections.css";
+import { getMyApplications } from "../../candidates/services/candidateService";
+import "../../../styles/elections.css";
 
 export default function Elections() {
   const [elections, setElections] = useState([]);

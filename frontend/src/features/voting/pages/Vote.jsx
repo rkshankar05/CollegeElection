@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getElections } from "../../../api/electionService";
-import { getPublicCandidates } from "../../../api/candidateService";
+import { getElections } from "../../elections/services/electionService";
+import { getPublicCandidates } from "../../candidates/services/candidateService";
 import { submitVote } from "../services/voteService";
 
 export default function Vote() {

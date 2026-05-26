@@ -7,7 +7,7 @@ import {
   createPost,
 } from "../services/adminService";
 import { getElections } from "../../elections/services/electionService";
-import "../styles/admin.css";
+import "../../../styles/admin.css";
 
 export default function AdminDashboard() {
   const [openForm, setOpenForm] = useState(null);

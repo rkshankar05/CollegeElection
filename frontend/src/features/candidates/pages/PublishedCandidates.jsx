@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getElections, getPublishedCandidates } from "../../elections/services/electionService";
-import "../styles/candidates.css";
+import "../../../styles/candidate.css";
 
 export default function PublishedCandidates() {
   const [searchParams] = useSearchParams();

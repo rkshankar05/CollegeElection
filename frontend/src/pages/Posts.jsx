@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getElections, getElectionPosts } from "../api/electionService";
+import { getElections, getElectionPosts } from "../features/elections/services/electionService";
 
 export default function Posts() {
   const [posts, setPosts] = useState([]);

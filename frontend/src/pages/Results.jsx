@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getElections } from "../api/electionService";
-import { getLiveResults, getResults } from "../api/voteService";
+import { getElections } from "../features/elections/services/electionService";
+import { getLiveResults, getResults } from "../features/voting/services/voteService";
 import { getRole } from "../utils/auth";
 
 function groupResults(rows) {

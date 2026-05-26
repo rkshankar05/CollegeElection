@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getAllApplications } from "../services/adminService";
 import { reviewCandidate } from "../../candidates/services/candidateService";
-import "../styles/admin.css";
+import "../../../styles/admin.css";
 
 export default function AdminApplications() {
   const [groups, setGroups] = useState({});

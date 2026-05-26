@@ -4,7 +4,7 @@ import {
   deleteStudent,
   updateStudent,
 } from "../services/adminService";
-import "../styles/admin.css";
+import "../../../styles/admin.css";
 
 export default function Students() {
   const [students, setStudents] = useState([]);

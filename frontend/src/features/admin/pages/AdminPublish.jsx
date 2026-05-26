@@ -6,7 +6,7 @@ import {
   unpublishCandidates,
   unpublishResult,
 } from "../services/adminService";
-import "../styles/admin.css";
+import "../../../styles/admin.css";
 
 export default function AdminPublish() {
   const [elections, setElections] = useState([]);
