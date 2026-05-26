@@ -154,3 +154,13 @@
   margin-top: 0;
   margin-bottom: 8px;
 }
+
+@media (max-width: 900px) {
+  .profile-summary-top {
+    flex-direction: column;
+  }
+
+  .profile-badge-stack {
+    justify-content: flex-start;
+  }
+}
