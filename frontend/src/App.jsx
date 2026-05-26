@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
-import Navbar from "./components/Navbar";
+import Navbar from "./components/layout/Navbar";
 import Login from "./features/auth/pages/Login";
 import Register from "./features/auth/pages/Register";
 import Elections from "./features/elections/pages/Elections";
