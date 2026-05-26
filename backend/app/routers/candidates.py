@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app import models, schemas, oauth2
+from app import models, schemas, oauth2, utils
 from app.database import get_db
 
 
@@ -117,7 +117,7 @@ def apply_for_candidate(
             detail="Election not found"
         )
 
-    now = datetime.utcnow()
+    now = utils.current_election_time()
 
     if now < election.application_start:
         raise HTTPException(
@@ -272,7 +272,7 @@ def review_candidate(
             detail="Election not found"
         )
 
-    if datetime.utcnow() >= election.voting_start:
+    if utils.current_election_time() >= election.voting_start:
         raise HTTPException(
             status_code=400,
             detail="Candidate review is closed because voting has started"

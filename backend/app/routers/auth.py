@@ -162,7 +162,7 @@ def get_profile(
     if current_user.role != "student":
         return profile
 
-    now = datetime.utcnow()
+    now = utils.current_election_time()
     elections = db.query(models.Election).order_by(
         models.Election.voting_start.asc()
     ).all()

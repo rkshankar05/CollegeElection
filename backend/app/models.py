@@ -129,7 +129,8 @@ class Vote(Base):
     voter_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     election_id = Column(Integer, ForeignKey("elections.id", ondelete="CASCADE"))
     post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"))
-    candidate_id = Column(Integer, ForeignKey("candidates.id", ondelete="CASCADE"))
+    candidate_id = Column(Integer, ForeignKey("candidates.id", ondelete="CASCADE"), nullable=True)
+    is_nota = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from datetime import datetime
+import csv
+import io
 
-from app import models, schemas, oauth2
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy.orm import Session
+
+from app import models, schemas, oauth2, utils
 from app.database import get_db
 
 
@@ -10,6 +12,14 @@ router = APIRouter(
     prefix="/admin",
     tags=["Admin"]
 )
+
+
+def _parse_bool(value):
+    if isinstance(value, bool):
+        return value
+
+    normalized = str(value or "").strip().lower()
+    return normalized in {"1", "true", "yes", "y"}
 
 
 @router.post("/students")
@@ -44,6 +54,105 @@ def add_student(
     db.refresh(student)
 
     return student
+
+
+@router.post("/students/upload-csv")
+async def upload_students_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(oauth2.require_admin)
+):
+    filename = (file.filename or "").lower()
+
+    if not filename.endswith(".csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV upload is supported by this backend right now"
+        )
+
+    content = await file.read()
+
+    try:
+        decoded = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="CSV file must be UTF-8 encoded"
+        )
+
+    reader = csv.DictReader(io.StringIO(decoded))
+
+    required_columns = {"roll_number", "college_email", "name"}
+    if not reader.fieldnames or not required_columns.issubset(set(reader.fieldnames)):
+        raise HTTPException(
+            status_code=400,
+            detail="CSV must contain roll_number, college_email, and name columns"
+        )
+
+    created = 0
+    updated = 0
+    skipped = 0
+    errors = []
+
+    for index, row in enumerate(reader, start=2):
+        roll_number = str((row or {}).get("roll_number", "")).strip()
+        college_email = str((row or {}).get("college_email", "")).strip().lower()
+        name = str((row or {}).get("name", "")).strip()
+        has_active_backlog = _parse_bool((row or {}).get("has_active_backlog", False))
+
+        if not roll_number or not college_email or not name:
+            skipped += 1
+            errors.append(f"Row {index}: missing roll_number, college_email, or name")
+            continue
+
+        matches = db.query(models.Student).filter(
+            (models.Student.roll_number == roll_number) |
+            (models.Student.college_email == college_email)
+        ).all()
+
+        unique_matches = {student.id: student for student in matches}
+
+        if len(unique_matches) > 1:
+            skipped += 1
+            errors.append(
+                f"Row {index}: roll_number and college_email belong to different existing students"
+            )
+            continue
+
+        student = next(iter(unique_matches.values()), None)
+
+        if student:
+            student.name = name
+            student.roll_number = roll_number
+            student.college_email = college_email
+            student.has_active_backlog = has_active_backlog
+
+            if student.user:
+                student.user.name = name
+                student.user.email = college_email
+
+            updated += 1
+            continue
+
+        db.add(
+            models.Student(
+                name=name,
+                roll_number=roll_number,
+                college_email=college_email,
+                has_active_backlog=has_active_backlog
+            )
+        )
+        created += 1
+
+    db.commit()
+
+    return {
+        "message": "Student upload processed",
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "errors": errors[:25],
+    }
 
 
 @router.post("/elections", response_model=schemas.ElectionOut)
@@ -205,7 +314,7 @@ def publish_result(
             detail="Election not found"
         )
 
-    if datetime.utcnow() < election.voting_end:
+    if utils.current_election_time() < election.voting_end:
         raise HTTPException(
             status_code=400,
             detail="Results can be published only after voting ends"
