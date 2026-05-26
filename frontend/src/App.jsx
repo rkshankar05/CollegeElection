@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Login from "./features/auth/pages/Login";
 import Register from "./features/auth/pages/Register";
-import Elections from "./pages/Elections";
+import Elections from "./features/elections/pages/Elections";
 import Posts from "./pages/Posts";
 import Apply from "./pages/Apply";
 import MyApplications from "./pages/MyApplications";
