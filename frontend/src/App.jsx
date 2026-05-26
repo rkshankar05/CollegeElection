@@ -5,8 +5,8 @@ import Login from "./features/auth/pages/Login";
 import Register from "./features/auth/pages/Register";
 import Elections from "./features/elections/pages/Elections";
 import Posts from "./pages/Posts";
-import Apply from "./pages/Apply";
-import MyApplications from "./pages/MyApplications";
+import Apply from "./features/candidates/pages/Apply";
+import MyApplications from "./features/candidates/pages/MyApplications";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminPublish from "./pages/AdminPublish";
 import { isLoggedIn, getRole } from "./utils/auth";
@@ -15,7 +15,7 @@ import Students from "./pages/Students";
 import AdminApplications from "./pages/AdminApplications";
 import Vote from "./features/voting/pages/Vote";
 import Results from "./pages/Results";
-import PublishedCandidates from "./pages/PublishedCandidates";
+import PublishedCandidates from "./features/candidates/pages/PublishedCandidates";
 import Profile from "./pages/Profile";
 
 function Home() {
