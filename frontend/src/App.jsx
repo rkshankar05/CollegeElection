@@ -1,8 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
+import Login from "./features/auth/pages/Login";
+import Register from "./features/auth/pages/Register";
 import Elections from "./pages/Elections";
 import Posts from "./pages/Posts";
 import Apply from "./pages/Apply";
@@ -13,7 +13,7 @@ import { isLoggedIn, getRole } from "./utils/auth";
 
 import Students from "./pages/Students";
 import AdminApplications from "./pages/AdminApplications";
-import Vote from "./pages/Vote";
+import Vote from "./features/voting/pages/Vote";
 import Results from "./pages/Results";
 import PublishedCandidates from "./pages/PublishedCandidates";
 import Profile from "./pages/Profile";
