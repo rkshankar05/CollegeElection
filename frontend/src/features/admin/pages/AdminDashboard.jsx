@@ -752,7 +752,7 @@ export default function AdminDashboard() {
           <div className="admin-tile-copy">
             <h2>Bulk Upload Students</h2>
             <p className="hint">
-              Import a prepared spreadsheet to create many student records quickly.
+              Import a prepared spreadsheet .
             </p>
           </div>
 
@@ -769,7 +769,7 @@ export default function AdminDashboard() {
           <div className="admin-tile-copy">
             <h2>Create Election</h2>
             <p className="hint">
-              Configure or update the application deadline and same-day voting window for an election year.
+              Configure or update the application  an election year.
             </p>
           </div>
 

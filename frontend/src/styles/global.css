@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap");
 
 body {
   margin: 0;
@@ -7,7 +7,7 @@ body {
     radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.12), transparent 24%),
     linear-gradient(180deg, #edf4ff 0%, #f8fafc 48%, #eef6f2 100%);
   color: #111827;
-  font-family: "Space Grotesk", "Trebuchet MS", sans-serif;
+  font-family: "Manrope", "Trebuchet MS", sans-serif;
   min-height: 100vh;
   line-height: 1.5;
 }
@@ -16,6 +16,7 @@ h1,
 h2,
 h3,
 h4 {
+  font-family: "Sora", "Manrope", sans-serif;
   letter-spacing: -0.03em;
 }
 
@@ -39,6 +40,7 @@ h4 {
 .brand,
 .logo a {
   color: white;
+  font-family: "Sora", "Manrope", sans-serif;
   font-weight: 800;
   font-size: 23px;
   text-decoration: none;
@@ -70,17 +72,23 @@ button,
   color: white;
   border: none;
   padding: 11px 18px;
-  border-radius: 12px;
+  border-radius: 14px;
+  font-family: "Sora", "Manrope", sans-serif;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  box-shadow:
+    0 14px 28px rgba(37, 99, 235, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, filter 0.18s ease;
 }
 
 button:hover,
 .logout-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.28);
+  box-shadow:
+    0 18px 34px rgba(37, 99, 235, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  filter: saturate(1.04);
 }
 
 button:disabled,
