@@ -1,17 +1,22 @@
 # ---------- Python ----------
-backend/.venv/
-backend/__pycache__/
-backend/*.pyc
-backend/.pytest_cache/
-backend/.mypy_cache/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# ---------- Virtual Environment ----------
+.venv/
+venv/
 
 # ---------- Environment ----------
+.env
 backend/.env
 frontend/.env
-.env
 
 # ---------- Alembic ----------
-backend/alembic/__pycache__/
+alembic/__pycache__/
 
 # ---------- Logs ----------
 *.log
