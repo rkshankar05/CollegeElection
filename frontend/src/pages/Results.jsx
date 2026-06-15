@@ -55,11 +55,7 @@ export default function Results() {
       return true;
     }
 
-    if (!election?.result_visible || !election?.voting_end) {
-      return false;
-    }
-
-    return new Date() >= new Date(election.voting_end);
+    return election?.status === "RESULT_PUBLISHED" || election?.status === "ARCHIVED";
   }
 
   useEffect(() => {

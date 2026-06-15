@@ -1,151 +1,92 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getElections } from "../../elections/services/electionService";
 import {
   publishCandidates,
   publishResult,
-  unpublishCandidates,
-  unpublishResult,
+  transitionElectionState,
 } from "../services/adminService";
 import "../../../styles/admin.css";
+
+const nextState = {
+  DRAFT: "APPLICATION_OPEN",
+  APPLICATION_OPEN: "APPLICATION_CLOSED",
+  APPLICATION_CLOSED: "VOTING_OPEN",
+  VOTING_OPEN: "VOTING_CLOSED",
+  VOTING_CLOSED: "RESULT_PUBLISHED",
+  RESULT_PUBLISHED: "ARCHIVED",
+};
+
+const labels = {
+  DRAFT: "Draft",
+  APPLICATION_OPEN: "Open Applications",
+  APPLICATION_CLOSED: "Close Applications",
+  VOTING_OPEN: "Open Voting",
+  VOTING_CLOSED: "Close Voting",
+  RESULT_PUBLISHED: "Publish Result",
+  ARCHIVED: "Archive",
+};
 
 export default function AdminPublish() {
   const [elections, setElections] = useState([]);
   const [electionId, setElectionId] = useState("");
-  const [selectedElection, setSelectedElection] = useState(null);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
-  function hasVotingEnded(election) {
-    if (!election?.voting_end) {
-      return false;
-    }
-
-    return new Date() >= new Date(election.voting_end);
-  }
-
-  function isResultPublished(election) {
-    return Boolean(election?.result_visible) && hasVotingEnded(election);
-  }
-
   useEffect(() => {
-    getElections().then((data) => {
-      const list = data || [];
-      setElections(list);
-
-      const now = new Date();
-      const activeElection =
-        list.find((election) => {
-          const appStart = new Date(election.application_start);
-          const voteEnd = new Date(election.voting_end);
-          return now >= appStart && now <= voteEnd;
-        }) || list[0];
-
-      if (activeElection) {
-        setElectionId(String(activeElection.id));
-        setSelectedElection(activeElection);
-      }
-    });
+    loadElections();
   }, []);
 
-  function handleElectionChange(id) {
-    setElectionId(id);
-    setMsg("");
-    setError("");
+  const selectedElection = useMemo(
+    () => elections.find((item) => String(item.id) === String(electionId)) || null,
+    [elections, electionId]
+  );
 
-    const election = elections.find((e) => String(e.id) === String(id));
-    setSelectedElection(election || null);
+  async function loadElections() {
+    try {
+      const data = await getElections();
+      const list = data || [];
+      setElections(list);
+      if (!electionId && list[0]) {
+        setElectionId(String(list[0].id));
+      }
+    } catch {
+      setError("Failed to load elections");
+    }
   }
 
   async function run(action, successMsg) {
-    if (!electionId) {
-      setError("Please select election first");
+    if (!selectedElection) {
+      setError("Please select an election");
       return;
     }
 
     try {
-      await action(electionId);
+      await action(selectedElection.id);
       setMsg(successMsg);
       setError("");
-
-      setSelectedElection((prev) => {
-        if (!prev) return prev;
-
-        if (action === publishCandidates) {
-          return { ...prev, candidates_visible: true };
-        }
-
-        if (action === unpublishCandidates) {
-          return { ...prev, candidates_visible: false };
-        }
-
-        if (action === publishResult) {
-          return { ...prev, result_visible: true };
-        }
-
-        if (action === unpublishResult) {
-          return { ...prev, result_visible: false };
-        }
-
-        return prev;
-      });
-
-      setElections((prev) =>
-        prev.map((item) => {
-          if (String(item.id) !== String(electionId)) {
-            return item;
-          }
-
-          if (action === publishCandidates) {
-            return { ...item, candidates_visible: true };
-          }
-
-          if (action === unpublishCandidates) {
-            return { ...item, candidates_visible: false };
-          }
-
-          if (action === publishResult) {
-            return { ...item, result_visible: true };
-          }
-
-          if (action === unpublishResult) {
-            return { ...item, result_visible: false };
-          }
-
-          return item;
-        })
-      );
+      await loadElections();
     } catch (err) {
       setError(err.response?.data?.detail || "Action failed");
       setMsg("");
     }
   }
 
+  const next = selectedElection ? nextState[selectedElection.status] : "";
+
   return (
     <div>
-      <h1>Publish Election</h1>
+      <h1>Election Operations</h1>
 
       {error && <div className="error">{error}</div>}
       {msg && <div className="success">{msg}</div>}
 
-      <div className="card">
-        {selectedElection && (
-          <div className="dashboard-note-band">
-            <strong>Active Election</strong>
-            <span>{selectedElection.title} - {selectedElection.year}</span>
-          </div>
-        )}
-
+      <section className="card">
         <label>Select Election</label>
-
-        <select
-          value={electionId}
-          onChange={(e) => handleElectionChange(e.target.value)}
-        >
+        <select value={electionId} onChange={(e) => setElectionId(e.target.value)}>
           <option value="">Choose election</option>
-
-          {elections.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.title} - {e.year}
+          {elections.map((election) => (
+            <option key={election.id} value={election.id}>
+              {election.title} - {election.year}
             </option>
           ))}
         </select>
@@ -153,63 +94,48 @@ export default function AdminPublish() {
         {selectedElection && (
           <div className="publish-actions">
             <div className="publish-box">
-              <h3>Candidate List</h3>
-
-              <p>
-                Status:{" "}
-                {selectedElection.candidates_visible
-                  ? "Published"
-                  : "Not Published"}
-              </p>
-
-              {selectedElection.candidates_visible ? (
+              <h3>State</h3>
+              <p>Status: {labels[selectedElection.status] || selectedElection.status}</p>
+              {next ? (
                 <button
-                  className="danger"
                   onClick={() =>
-                    run(unpublishCandidates, "Candidate list unpublished")
+                    run(
+                      (id) => transitionElectionState(id, next),
+                      `Election moved to ${labels[next] || next}`
+                    )
                   }
                 >
-                  Unpublish Candidate List
+                  Move To {labels[next] || next}
                 </button>
               ) : (
-                <button
-                  onClick={() =>
-                    run(publishCandidates, "Candidate list published")
-                  }
-                >
-                  Publish Candidate List
-                </button>
+                <button disabled>No Next State</button>
               )}
             </div>
 
             <div className="publish-box">
-              <h3>Result</h3>
+              <h3>Candidate List</h3>
+              <p>Status: {selectedElection.candidates_visible ? "Published" : "Hidden"}</p>
+              <button
+                disabled={selectedElection.candidates_visible}
+                onClick={() => run(publishCandidates, "Candidate list published")}
+              >
+                Publish Candidates
+              </button>
+            </div>
 
-              <p>
-                Status:{" "}
-                {isResultPublished(selectedElection)
-                  ? "Published"
-                  : "Not Published"}
-              </p>
-
-              {isResultPublished(selectedElection) ? (
-                <button
-                  className="danger"
-                  onClick={() => run(unpublishResult, "Result unpublished")}
-                >
-                  Unpublish Result
-                </button>
-              ) : !hasVotingEnded(selectedElection) ? (
-                <button disabled>Publish Result After Voting Ends</button>
-              ) : (
-                <button onClick={() => run(publishResult, "Result published")}>
-                  Publish Result
-                </button>
-              )}
+            <div className="publish-box">
+              <h3>Results</h3>
+              <p>Status: {selectedElection.result_visible ? "Published" : "Hidden"}</p>
+              <button
+                disabled={selectedElection.status !== "VOTING_CLOSED"}
+                onClick={() => run(publishResult, "Result published")}
+              >
+                Publish Result
+              </button>
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

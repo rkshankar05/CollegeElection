@@ -49,6 +49,11 @@ export async function updateElection(electionId, data) {
   return res.data;
 }
 
+export async function transitionElectionState(electionId, status) {
+  const res = await api.patch(`/admin/elections/${electionId}/state`, { status });
+  return res.data;
+}
+
 export async function createPost(data) {
   const res =
     await api.post(
@@ -104,16 +109,6 @@ export async function publishCandidates(electionId) {
 
 export async function publishResult(electionId) {
   const res = await api.patch(`/admin/elections/${electionId}/publish-result`);
-  return res.data;
-}
-
-export async function unpublishCandidates(electionId) {
-  const res = await api.patch(`/admin/elections/${electionId}/unpublish-candidates`);
-  return res.data;
-}
-
-export async function unpublishResult(electionId) {
-  const res = await api.patch(`/admin/elections/${electionId}/unpublish-result`);
   return res.data;
 }
 

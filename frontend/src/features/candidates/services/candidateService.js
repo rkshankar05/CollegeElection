@@ -1,10 +1,5 @@
 import api from "../../../api/apiClient";
 
-export async function getMyApplications() {
-  const res = await api.get("/candidates/my-applications");
-  return res.data;
-}
-
 export async function applyCandidate(data) {
   const res = await api.post("/candidates/apply", data);
   return res.data;

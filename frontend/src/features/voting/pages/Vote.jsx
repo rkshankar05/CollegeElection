@@ -8,6 +8,7 @@ export default function Vote() {
   const [electionId, setElectionId] = useState("");
   const [groups, setGroups] = useState({});
   const [selected, setSelected] = useState({});
+  const [receipts, setReceipts] = useState([]);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -20,6 +21,7 @@ export default function Vote() {
   async function loadCandidates(id) {
     setElectionId(id);
     setSelected({});
+    setReceipts([]);
     setError("");
     setMsg("");
 
@@ -64,17 +66,18 @@ export default function Vote() {
     }
 
     try {
-      await submitVote({
+      const result = await submitVote({
         election_id: Number(electionId),
-        // Transform { postName: { post_id, candidate_id } } -> [{ post_id, candidate_id }]
         votes: Object.values(selected),
       });
 
       setMsg("Vote submitted successfully");
+      setReceipts(result.receipts || []);
       setError("");
     } catch (err) {
       setError(err.response?.data?.detail || "Vote failed");
       setMsg("");
+      setReceipts([]);
     }
   }
 
@@ -84,6 +87,16 @@ export default function Vote() {
 
       {error && <div className="error">{error}</div>}
       {msg && <div className="success">{msg}</div>}
+      {receipts.length > 0 && (
+        <div className="card">
+          <h2>Receipts</h2>
+          {receipts.map((receipt) => (
+            <p key={receipt.receipt_code}>
+              Post {receipt.post_id}: <strong>{receipt.receipt_code}</strong>
+            </p>
+          ))}
+        </div>
+      )}
 
       <form className="card form-shell" onSubmit={submit}>
         <div className="section-head">
@@ -141,6 +154,29 @@ export default function Vote() {
                   </button>
                 </div>
               ))}
+              <div
+                className={`candidate-card vote-card ${
+                  selected[postName]?.is_nota ? "selected" : ""
+                }`}
+              >
+                <div className="vote-card-copy">
+                  <h3>NOTA</h3>
+                  <p>None of the above</p>
+                </div>
+
+                <button
+                  type="button"
+                  className={`vote-select-btn ${selected[postName]?.is_nota ? "active" : ""}`}
+                  onClick={() =>
+                    setSelected({
+                      ...selected,
+                      [postName]: { post_id: groups[postName][0]?.post_id, is_nota: true },
+                    })
+                  }
+                >
+                  {selected[postName]?.is_nota ? "Selected" : "Select"}
+                </button>
+              </div>
             </div>
           </div>
         ))}
