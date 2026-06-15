@@ -68,6 +68,43 @@ def create_post(
     return admin_service.create_post(db, post_data, admin)
 
 
+@router.get("/elections/{election_id}/posts", response_model=list[schemas.PostOut])
+def get_posts_for_election(
+    election_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(oauth2.require_admin),
+):
+    return admin_service.get_posts_for_election(db, election_id)
+
+
+@router.delete("/posts/{post_id}")
+def delete_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(oauth2.require_admin),
+):
+    return admin_service.delete_post_everywhere(db, post_id, admin)
+
+
+@router.delete("/elections/{election_id}/posts/by-name")
+def delete_post_by_name(
+    election_id: int,
+    name: str,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(oauth2.require_admin),
+):
+    return admin_service.delete_post_by_name(db, election_id, name, admin)
+
+
+@router.post("/elections/{election_id}/copy-previous-posts")
+def copy_previous_posts(
+    election_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(oauth2.require_admin),
+):
+    return admin_service.copy_previous_posts(db, election_id, admin)
+
+
 @router.patch("/students/{student_id}/candidate-block")
 def update_candidate_block(
     student_id: int,

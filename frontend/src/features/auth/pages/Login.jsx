@@ -21,11 +21,6 @@ export default function Login() {
           password
         );
 
-      console.log(
-        "LOGIN RESPONSE:",
-        data
-      );
-
       if (
         !data ||
         !data.access_token
@@ -42,10 +37,6 @@ export default function Login() {
         data.access_token
       );
 
-      console.log(
-        "TOKEN SAVED"
-      );
-
       navigate("/");
 
       setTimeout(() => {
@@ -53,16 +44,9 @@ export default function Login() {
       }, 100);
 
     } catch (err) {
-
-      console.log(
-        "FULL LOGIN ERROR",
-        err
-      );
-
       setError(
-        JSON.stringify(
-          err.response?.data
-        ) ||
+        err.response?.data?.detail ||
+        err.message ||
         "Login failed"
       );
     }

@@ -4,7 +4,7 @@ import { getPublicCandidates } from "../../candidates/services/candidateService"
 import { submitVote } from "../services/voteService";
 
 export default function Vote() {
-  const [elections, setElections] = useState([]);
+  const [currentElection, setCurrentElection] = useState(null);
   const [electionId, setElectionId] = useState("");
   const [groups, setGroups] = useState({});
   const [selected, setSelected] = useState({});
@@ -14,7 +14,20 @@ export default function Vote() {
 
   useEffect(() => {
     getElections()
-      .then(setElections)
+      .then((data) => {
+        const openElections = (data || []).filter(
+          (election) => election.status === "VOTING_OPEN" && election.candidates_visible
+        );
+        const selectedElection = openElections[0] || null;
+
+        setCurrentElection(selectedElection);
+        if (selectedElection) {
+          loadCandidates(selectedElection.id);
+        } else {
+          setElectionId("");
+          setGroups({});
+        }
+      })
       .catch(() => setError("Failed to load elections"));
   }, []);
 
@@ -100,23 +113,13 @@ export default function Vote() {
 
       <form className="card form-shell" onSubmit={submit}>
         <div className="section-head">
-          <h2>Select Election</h2>
-          <p className="hint">Choose one approved candidate for each available post.</p>
+          <h2>{currentElection ? currentElection.title : "Voting Closed"}</h2>
+          <p className="hint">
+            {currentElection
+              ? `Voting is open for ${currentElection.year}. Choose one approved candidate for each available post.`
+              : "No election is currently open for voting."}
+          </p>
         </div>
-
-        <select
-          value={electionId}
-          onChange={(e) => loadCandidates(e.target.value)}
-        >
-          <option value="">Select Election</option>
-
-          {elections.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.title} - {e.year}
-            </option>
-          ))}
-        </select>
-
         {Object.keys(groups).map((postName) => (
           <div className="post-section" key={postName}>
             <div className="section-head">
@@ -181,7 +184,7 @@ export default function Vote() {
           </div>
         ))}
 
-        <button className="submit-btn" type="submit">
+        <button className="submit-btn" type="submit" disabled={!currentElection || Object.keys(groups).length === 0}>
           Submit Vote
         </button>
       </form>

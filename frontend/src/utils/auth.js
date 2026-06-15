@@ -26,21 +26,11 @@ export function getRole() {
         )
       );
 
-    console.log(
-      "JWT PAYLOAD:",
-      payload
-    );
-
     return (
       payload.role ||
       "student"
     );
   } catch (e) {
-    console.log(
-      "JWT ERROR:",
-      e
-    );
-
     return null;
   }
 }

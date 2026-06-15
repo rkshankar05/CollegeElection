@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   addStudent,
   uploadStudentsFile,
   createElection,
   updateElection,
   createPost,
+  copyPreviousPosts,
+  getElectionPostsForAdmin,
+  deletePost,
+  deletePostByName,
 } from "../services/adminService";
-import { getElections } from "../../elections/services/electionService";
+import { getElections, getElectionPosts } from "../../elections/services/electionService";
 import "../../../styles/admin.css";
 
 export default function AdminDashboard() {
@@ -16,6 +21,8 @@ export default function AdminDashboard() {
   const [studentFile, setStudentFile] = useState(null);
   const [elections, setElections] = useState([]);
   const [selectedElectionId, setSelectedElectionId] = useState("");
+  const [postList, setPostList] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(false);
 
   const [student, setStudent] = useState({
     roll_number: "",
@@ -43,6 +50,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadElections();
   }, []);
+
+  useEffect(() => {
+    if (openForm === "post" && post.election_id) {
+      loadPosts(post.election_id);
+    } else {
+      setPostList([]);
+    }
+  }, [openForm, post.election_id]);
 
   function getDashboardElection() {
     if (!elections.length) {
@@ -95,6 +110,24 @@ export default function AdminDashboard() {
     }
   }
 
+  async function loadPosts(electionId) {
+    setPostsLoading(true);
+    try {
+      const data = await getElectionPostsForAdmin(electionId);
+      setPostList(data || []);
+    } catch (err) {
+      try {
+        const fallbackData = await getElectionPosts(electionId);
+        setPostList(fallbackData || []);
+      } catch {
+        setPostList([]);
+        showError(err, "Failed to load posts");
+      }
+    } finally {
+      setPostsLoading(false);
+    }
+  }
+
   function splitDateTime(value) {
     if (!value) {
       return { date: "", time: "" };
@@ -133,6 +166,12 @@ export default function AdminDashboard() {
   function toggleForm(name) {
     setError("");
     setMsg("");
+    if (name === "post" && openForm !== "post" && !post.election_id && elections.length > 0) {
+      setPost({
+        ...post,
+        election_id: String(elections[0].id),
+      });
+    }
     setOpenForm(openForm === name ? null : name);
   }
 
@@ -288,7 +327,7 @@ export default function AdminDashboard() {
     e.preventDefault();
 
     if (!post.election_id || !post.name) {
-      setError("Election ID and post name are required");
+      setError("Election and post name are required");
       setMsg("");
       return;
     }
@@ -302,15 +341,54 @@ export default function AdminDashboard() {
 
       setMsg("Post created successfully");
       setError("");
-      setOpenForm(null);
+      await loadPosts(post.election_id);
 
       setPost({
-        election_id: "",
+        election_id: post.election_id,
         name: "",
         display_order: 0,
       });
     } catch (err) {
       showError(err, "Failed to create post");
+    }
+  }
+
+  async function handleCopyPreviousPosts() {
+    if (!post.election_id) {
+      setError("Please select an election first");
+      setMsg("");
+      return;
+    }
+
+    try {
+      const result = await copyPreviousPosts(post.election_id);
+      setMsg(`${result.message}. ${result.copied} post(s) added.`);
+      setError("");
+      await loadElections();
+      await loadPosts(post.election_id);
+    } catch (err) {
+      showError(err, "Failed to copy previous posts");
+    }
+  }
+
+  async function handleDeletePost(item) {
+    if (!window.confirm("Delete this post from all editable elections?")) {
+      return;
+    }
+
+    try {
+      let result;
+      try {
+        result = await deletePostByName(post.election_id, item.name);
+      } catch {
+        result = await deletePost(item.id);
+      }
+      const skipped = result.skipped ? ` ${result.skipped} protected copy/copies skipped.` : "";
+      setMsg(`${result.message}. ${result.deleted} post(s) removed.${skipped}`);
+      setError("");
+      await loadPosts(post.election_id);
+    } catch (err) {
+      showError(err, "Failed to delete post");
     }
   }
 
@@ -617,10 +695,8 @@ export default function AdminDashboard() {
           <form className="form-box elevated-form dashboard-form-panel" onSubmit={submitPost}>
             <div className="dashboard-form-grid">
               <div>
-                <label>Election ID *</label>
-                <input
-                  type="number"
-                  placeholder="1"
+                <label>Election *</label>
+                <select
                   value={post.election_id}
                   onChange={(e) =>
                     setPost({
@@ -628,7 +704,14 @@ export default function AdminDashboard() {
                       election_id: e.target.value,
                     })
                   }
-                />
+                >
+                  <option value="">Select election</option>
+                  {elections.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.title} ({item.year})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -663,8 +746,47 @@ export default function AdminDashboard() {
 
             <div className="dashboard-form-actions">
               <button type="submit">Save Post</button>
+              <button type="button" className="ghost-btn" onClick={handleCopyPreviousPosts}>
+                Use Previous Election Posts
+              </button>
             </div>
           </form>
+
+          {post.election_id && (
+            <div className="stack-list">
+              <div className="section-head">
+                <h3>Current Posts</h3>
+                <button type="button" className="ghost-btn" onClick={() => loadPosts(post.election_id)}>
+                  Refresh
+                </button>
+              </div>
+
+              {postsLoading ? (
+                <div className="empty-state">
+                  <p>Loading posts...</p>
+                </div>
+              ) : postList.length === 0 ? (
+                <div className="empty-state">
+                  <h3>No posts added</h3>
+                  <p>Add a post or copy posts from previous elections.</p>
+                </div>
+              ) : (
+                postList.map((item) => (
+                  <article className="entity-card" key={item.id}>
+                    <div>
+                      <h3>{item.name}</h3>
+                      <p className="hint">Display order: {item.display_order}</p>
+                    </div>
+                    <div className="entity-actions">
+                      <button type="button" className="danger" onClick={() => handleDeletePost(item)}>
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          )}
         </section>
       );
     }
@@ -793,6 +915,23 @@ export default function AdminDashboard() {
           <button className="tile-cta" onClick={() => toggleForm("post")}>
             {openForm === "post" ? "Close Form" : "Create Post"}
           </button>
+        </div>
+
+        <div className="card admin-tile">
+          <div className="admin-tile-head">
+            <span className="admin-tile-index">05</span>
+            <span className="badge">Review</span>
+          </div>
+          <div className="admin-tile-copy">
+            <h2>Candidate Applications</h2>
+            <p className="hint">
+              Approve or reject student applications by election and post.
+            </p>
+          </div>
+
+          <Link className="tile-cta" to="/admin-applications">
+            Review Candidates
+          </Link>
         </div>
       </div>
 

@@ -6,7 +6,7 @@ import "../../../styles/candidate.css";
 
 export default function Apply() {
   const [searchParams] = useSearchParams();
-  const [elections, setElections] = useState([]);
+  const [currentElection, setCurrentElection] = useState(null);
   const [posts, setPosts] = useState([]);
   const [electionId, setElectionId] = useState("");
   const [selectedPosts, setSelectedPosts] = useState([]);
@@ -17,23 +17,28 @@ export default function Apply() {
     loadElections();
   }, []);
 
-  useEffect(() => {
-    const presetElectionId = searchParams.get("election");
-
-    if (presetElectionId) {
-      loadPostsForElection(presetElectionId);
-    }
-  }, [searchParams]);
-
   async function loadElections() {
     try {
       const data = await getElections();
-      setElections(data);
-
+      const openElections = (data || []).filter((election) => election.status === "APPLICATION_OPEN");
       const presetElectionId = searchParams.get("election");
-      if (presetElectionId && data.some((election) => String(election.id) === String(presetElectionId))) {
-        setElectionId(String(presetElectionId));
+
+      const selectedElection =
+        openElections.find((election) => String(election.id) === String(presetElectionId)) ||
+        openElections[0] ||
+        null;
+
+      setCurrentElection(selectedElection);
+
+      if (selectedElection) {
+        await loadPostsForElection(selectedElection.id);
+        return;
       }
+
+      setElectionId("");
+      setPosts([]);
+      setSelectedPosts([]);
+      setError("");
     } catch {
       setError("Failed to load elections");
     }
@@ -56,10 +61,6 @@ export default function Apply() {
     } catch {
       setError("Failed to load posts");
     }
-  }
-
-  async function handleElectionChange(e) {
-    await loadPostsForElection(e.target.value);
   }
 
   function togglePost(postId) {
@@ -112,49 +113,57 @@ export default function Apply() {
       {error && <div className="error">{error}</div>}
       {msg && <div className="success">{msg}</div>}
 
-      <form className="card apply-card" onSubmit={submit}>
-        <label>Select Election *</label>
-
-        <select value={electionId} onChange={handleElectionChange}>
-          <option value="">Choose election</option>
-
-          {elections.map((election) => (
-            <option key={election.id} value={election.id}>
-              {election.title} - {election.year}
-            </option>
-          ))}
-        </select>
-
-        <div className="apply-header">
-          <h2>Select Posts</h2>
-          <span>{selectedPosts.length}/2 selected</span>
+      {!currentElection ? (
+        <div className="card empty-state">
+          <h2>Applications Not Open</h2>
+          <p>Candidate applications will appear here after admin opens the application phase.</p>
         </div>
+      ) : (
+        <form className="card apply-card" onSubmit={submit}>
+          <div className="section-head">
+            <h2>{currentElection.title}</h2>
+            <p className="hint">Election {currentElection.year}</p>
+          </div>
 
-        <div className="post-grid">
-          {posts.map((post) => {
-            const checked = selectedPosts.includes(post.id);
+          <>
+            <div className="apply-header">
+              <h2>Select Posts</h2>
+              <span>{selectedPosts.length}/2 selected</span>
+            </div>
 
-            return (
-              <div
-                key={post.id}
-                className={`post-select-card ${checked ? "selected" : ""}`}
-                onClick={() => togglePost(post.id)}
-              >
-                <h3>{post.name}</h3>
-                <p>Post ID: {post.id}</p>
+            <div className="post-grid">
+              {posts.map((post) => {
+                const checked = selectedPosts.includes(post.id);
 
-                <button type="button">
-                  {checked ? "Selected" : "Select"}
-                </button>
+                return (
+                  <div
+                    key={post.id}
+                    className={`post-select-card ${checked ? "selected" : ""}`}
+                    onClick={() => togglePost(post.id)}
+                  >
+                    <h3>{post.name}</h3>
+                    <p>Post ID: {post.id}</p>
+
+                    <button type="button">
+                      {checked ? "Selected" : "Select"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {posts.length === 0 && (
+              <div className="empty-state">
+                <h3>No posts available</h3>
+                <p>Admin needs to create posts once. They will be reused for elections automatically.</p>
               </div>
-            );
-          })}
-        </div>
+            )}
+          </>
 
-        <button className="submit-btn" type="submit">
-          Submit Application
-        </button>
-      </form>
+          <button className="submit-btn" type="submit" disabled={posts.length === 0}>
+            Submit Application
+          </button>
+        </form>
+      )}
     </div>
   );
 }

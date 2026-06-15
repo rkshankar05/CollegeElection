@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
+import Dashboard from "./Dashboard";
 import Login from "../features/auth/pages/Login";
 import Register from "../features/auth/pages/Register";
 import Elections from "../features/elections/pages/Elections";
@@ -17,29 +18,46 @@ function Home() {
     return <Navigate to="/login" replace />;
   }
 
-  const role = getRole();
+  return getRole() === "admin"
+    ? <Navigate to="/admin" replace />
+    : <Navigate to="/dashboard" replace />;
+}
 
-  if (role === "admin") {
-    return <Navigate to="/admin" replace />;
+function RequireAuth({ children }) {
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
   }
 
-  return <Navigate to="/elections" replace />;
+  return children;
+}
+
+function RequireRole({ role, children }) {
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (getRole() !== role) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
 }
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/students" element={<Students />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/admin-publish" element={<AdminPublish />} />
-      <Route path="/elections" element={<Elections />} />
-      <Route path="/apply" element={<Apply />} />
-      <Route path="/admin" element={<AdminDashboard />} />
-      <Route path="/admin-applications" element={<AdminApplications />} />
-      <Route path="/vote" element={<Vote />} />
-      <Route path="/results" element={<Results />} />
+      <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+      <Route path="/students" element={<RequireRole role="admin"><Students /></RequireRole>} />
+      <Route path="/admin-publish" element={<RequireRole role="admin"><AdminPublish /></RequireRole>} />
+      <Route path="/admin" element={<RequireRole role="admin"><AdminDashboard /></RequireRole>} />
+      <Route path="/admin-applications" element={<RequireRole role="admin"><AdminApplications /></RequireRole>} />
+      <Route path="/elections" element={<RequireRole role="student"><Elections /></RequireRole>} />
+      <Route path="/apply" element={<RequireRole role="student"><Apply /></RequireRole>} />
+      <Route path="/vote" element={<RequireRole role="student"><Vote /></RequireRole>} />
+      <Route path="/results" element={<RequireAuth><Results /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

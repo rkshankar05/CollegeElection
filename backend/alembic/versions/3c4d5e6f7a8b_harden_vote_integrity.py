@@ -36,6 +36,9 @@ def upgrade() -> None:
     if not _constraint_exists("candidates", "uq_candidates_election_id_id"):
         op.create_unique_constraint("uq_candidates_election_id_id", "candidates", ["election_id", "id"])
 
+    if not _constraint_exists("candidate_posts", "unique_candidate_post"):
+        op.create_unique_constraint("unique_candidate_post", "candidate_posts", ["candidate_id", "post_id"])
+
     if not _constraint_exists("votes", "one_vote_per_post"):
         op.create_unique_constraint("one_vote_per_post", "votes", ["voter_id", "election_id", "post_id"])
 

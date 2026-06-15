@@ -16,16 +16,57 @@ def get_single_election(db: Session, election_id: int):
     return election
 
 
+def ensure_election_posts(db: Session, election: models.Election):
+    existing_posts = (
+        db.query(models.Post)
+        .filter(models.Post.election_id == election.id)
+        .order_by(models.Post.display_order.asc())
+        .all()
+    )
+    if existing_posts:
+        return existing_posts
+
+    template_election = (
+        db.query(models.Election)
+        .join(models.Post, models.Post.election_id == models.Election.id)
+        .filter(models.Election.id != election.id)
+        .order_by(models.Election.year.desc(), models.Election.id.desc())
+        .first()
+    )
+    if not template_election:
+        return []
+
+    template_posts = (
+        db.query(models.Post)
+        .filter(models.Post.election_id == template_election.id)
+        .order_by(models.Post.display_order.asc())
+        .all()
+    )
+    db.add_all(
+        [
+            models.Post(
+                election_id=election.id,
+                name=post.name,
+                display_order=post.display_order,
+            )
+            for post in template_posts
+        ]
+    )
+    db.commit()
+
+    return (
+        db.query(models.Post)
+        .filter(models.Post.election_id == election.id)
+        .order_by(models.Post.display_order.asc())
+        .all()
+    )
+
+
 def get_election_posts(db: Session, election_id: int):
     election = db.query(models.Election).filter(models.Election.id == election_id).first()
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
-    return (
-        db.query(models.Post)
-        .filter(models.Post.election_id == election_id)
-        .order_by(models.Post.display_order.asc())
-        .all()
-    )
+    return ensure_election_posts(db, election)
 
 
 def get_published_candidates(db: Session, election_id: int):

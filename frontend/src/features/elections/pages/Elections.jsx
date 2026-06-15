@@ -13,6 +13,14 @@ const statusLabels = {
   ARCHIVED: "Archived",
 };
 
+const activeStatuses = new Set([
+  "DRAFT",
+  "APPLICATION_OPEN",
+  "APPLICATION_CLOSED",
+  "VOTING_OPEN",
+  "VOTING_CLOSED",
+]);
+
 export default function Elections() {
   const [elections, setElections] = useState([]);
   const [error, setError] = useState("");
@@ -29,20 +37,17 @@ export default function Elections() {
 
   return (
     <div className="elections-page">
-      <div className="section-head">
-        <h1>Elections</h1>
-        <p className="hint">Backend state controls when applications, voting, and results are available.</p>
-      </div>
+      <h1>Elections</h1>
 
       {error && <div className="error">{error}</div>}
 
       <div className="election-list">
-        {elections.map((election) => (
+        {elections.filter((election) => activeStatuses.has(election.status)).map((election) => (
           <article className="card election-showcase" key={election.id}>
             <div className="election-showcase-head">
               <div>
-                <p className="profile-kicker">Election {election.year}</p>
                 <h2>{election.title}</h2>
+                <p className="hint">Election {election.year}</p>
               </div>
               <span className="badge">{statusLabels[election.status] || election.status}</span>
             </div>

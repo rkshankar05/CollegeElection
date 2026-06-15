@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -37,4 +37,6 @@ class Post(Base):
     __table_args__ = (
         UniqueConstraint("election_id", "name", name="unique_post_per_election"),
         UniqueConstraint("election_id", "id", name="uq_posts_election_id_id"),
+        Index("idx_posts_name", "name"),
+        Index("idx_posts_election_order", "election_id", "display_order"),
     )

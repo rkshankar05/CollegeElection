@@ -199,6 +199,24 @@ def review_candidate(db: Session, candidate_post_id: int, data: schemas.Candidat
         candidate_post.reviewed_at = datetime.utcnow()
         candidate_post.rejection_reason = data.rejection_reason or "Rejected by admin"
 
+    all_posts = (
+        db.query(models.CandidatePost)
+        .filter(models.CandidatePost.candidate_id == candidate.id)
+        .all()
+    )
+    statuses = {post.status for post in all_posts}
+    if statuses == {"approved"}:
+        candidate.status = "approved"
+    elif statuses == {"rejected"}:
+        candidate.status = "rejected"
+    elif "pending" in statuses:
+        candidate.status = "pending"
+    else:
+        candidate.status = "mixed"
+    reviewed_values = [post.reviewed_at for post in all_posts if post.reviewed_at]
+    candidate.reviewed_at = max(reviewed_values) if reviewed_values else None
+    candidate.rejection_reason = candidate_post.rejection_reason if candidate.status == "rejected" else None
+
     db.commit()
     db.refresh(candidate_post)
     audit_service.log_action(

@@ -64,6 +64,28 @@ export async function createPost(data) {
   return res.data;
 }
 
+export async function copyPreviousPosts(electionId) {
+  const res = await api.post(`/admin/elections/${electionId}/copy-previous-posts`);
+  return res.data;
+}
+
+export async function getElectionPostsForAdmin(electionId) {
+  const res = await api.get(`/admin/elections/${electionId}/posts`);
+  return res.data;
+}
+
+export async function deletePost(postId) {
+  const res = await api.delete(`/admin/posts/${postId}`);
+  return res.data;
+}
+
+export async function deletePostByName(electionId, name) {
+  const res = await api.delete(`/admin/elections/${electionId}/posts/by-name`, {
+    params: { name },
+  });
+  return res.data;
+}
+
 export async function getAllStudents() {
   const res = await api.get("/admin/students");
   return res.data;
