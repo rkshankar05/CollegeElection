@@ -4,7 +4,9 @@ from fastapi import HTTPException
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app import models, schemas, utils
+from app import models, schemas
+import app.services.audit_service as audit_service
+import app.services.election_state_service as election_state_service
 
 
 def get_my_applications(db: Session, current_user: models.User):
@@ -77,11 +79,11 @@ def apply_for_candidate(db: Session, current_user: models.User, data: schemas.Ca
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
 
-    now = utils.current_election_time()
-    if now < election.application_start:
-        raise HTTPException(status_code=400, detail="Candidate application has not started")
-    if now > election.application_deadline:
-        raise HTTPException(status_code=400, detail="Candidate application deadline passed")
+    election_state_service.assert_state(
+        election,
+        election_state_service.ElectionState.APPLICATION_OPEN,
+        "Candidates can apply only while applications are open",
+    )
 
     student = db.query(models.Student).filter(models.Student.user_id == current_user.id).first()
     if not student:
@@ -155,8 +157,10 @@ def review_candidate(db: Session, candidate_post_id: int, data: schemas.Candidat
     election = db.query(models.Election).filter(models.Election.id == candidate.election_id).first()
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
-    if utils.current_election_time() >= election.voting_start:
-        raise HTTPException(status_code=400, detail="Candidate review is closed because voting has started")
+    election_state_service.assert_not_started_voting(
+        election,
+        "Candidate review is closed because voting has started",
+    )
 
     if candidate_post.status == data.status:
         if data.status == "rejected" and data.rejection_reason:
@@ -197,6 +201,13 @@ def review_candidate(db: Session, candidate_post_id: int, data: schemas.Candidat
 
     db.commit()
     db.refresh(candidate_post)
+    audit_service.log_action(
+        db,
+        action=f"candidate_{candidate_post.status}",
+        resource_type="candidate_post",
+        resource_id=candidate_post.id,
+    )
+    db.commit()
     return {
         "message": f"Candidate post {candidate_post.status} successfully",
         "candidate_post_id": candidate_post.id,

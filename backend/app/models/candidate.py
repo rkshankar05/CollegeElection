@@ -23,6 +23,7 @@ class Candidate(Base):
 
     __table_args__ = (
         UniqueConstraint("user_id", "election_id", name="one_candidate_application_per_election"),
+        UniqueConstraint("election_id", "id", name="uq_candidates_election_id_id"),
     )
 
 

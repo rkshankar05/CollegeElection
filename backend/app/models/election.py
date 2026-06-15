@@ -19,7 +19,7 @@ class Election(Base):
     candidates_visible = Column(Boolean, default=False)
     result_visible = Column(Boolean, default=False)
     result_locked = Column(Boolean, default=False)
-    status = Column(String, default="draft")
+    status = Column(String, default="DRAFT")
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -36,4 +36,5 @@ class Post(Base):
 
     __table_args__ = (
         UniqueConstraint("election_id", "name", name="unique_post_per_election"),
+        UniqueConstraint("election_id", "id", name="uq_posts_election_id_id"),
     )

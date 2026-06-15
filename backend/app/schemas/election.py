@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
@@ -38,6 +39,17 @@ class ElectionOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ElectionStateTransition(BaseModel):
+    status: Literal[
+        "APPLICATION_OPEN",
+        "APPLICATION_CLOSED",
+        "VOTING_OPEN",
+        "VOTING_CLOSED",
+        "RESULT_PUBLISHED",
+        "ARCHIVED",
+    ]
 
 
 class PostCreate(BaseModel):

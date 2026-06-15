@@ -4,7 +4,9 @@ import io
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app import models, schemas, utils
+from app import models, schemas
+import app.services.audit_service as audit_service
+import app.services.election_state_service as election_state_service
 
 
 def _parse_bool(value):
@@ -116,10 +118,22 @@ def create_election(db: Session, election_data: schemas.ElectionCreate, admin: m
     existing = db.query(models.Election).filter(models.Election.year == election_data.year).first()
     if existing:
         raise HTTPException(status_code=400, detail="Election already exists for this year")
-    election = models.Election(**election_data.model_dump(), created_by=admin.id)
+    election = models.Election(
+        **election_data.model_dump(),
+        created_by=admin.id,
+        status=election_state_service.ElectionState.DRAFT.value,
+    )
     db.add(election)
     db.commit()
     db.refresh(election)
+    audit_service.log_action(
+        db,
+        action="election_created",
+        actor_id=admin.id,
+        resource_type="election",
+        resource_id=election.id,
+    )
+    db.commit()
     return election
 
 
@@ -127,6 +141,10 @@ def update_election(db: Session, election_id: int, election_data: schemas.Electi
     election = db.query(models.Election).filter(models.Election.id == election_id).first()
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
+    election_state_service.assert_not_started_voting(
+        election,
+        "Election cannot be edited after voting starts",
+    )
 
     existing = db.query(models.Election).filter(
         models.Election.id != election_id, models.Election.year == election_data.year
@@ -141,14 +159,26 @@ def update_election(db: Session, election_id: int, election_data: schemas.Electi
     return election
 
 
-def create_post(db: Session, post_data: schemas.PostCreate):
+def create_post(db: Session, post_data: schemas.PostCreate, admin: models.User):
     election = db.query(models.Election).filter(models.Election.id == post_data.election_id).first()
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
+    election_state_service.assert_not_started_voting(
+        election,
+        "Election posts cannot be edited after voting starts",
+    )
     post = models.Post(**post_data.model_dump())
     db.add(post)
     db.commit()
     db.refresh(post)
+    audit_service.log_action(
+        db,
+        action="post_created",
+        actor_id=admin.id,
+        resource_type="post",
+        resource_id=post.id,
+    )
+    db.commit()
     return post
 
 
@@ -180,9 +210,18 @@ def publish_result(db: Session, election_id: int):
     election = db.query(models.Election).filter(models.Election.id == election_id).first()
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
-    if utils.current_election_time() < election.voting_end:
-        raise HTTPException(status_code=400, detail="Results can be published only after voting ends")
-    election.result_visible = True
+    election_state_service.assert_state(
+        election,
+        election_state_service.ElectionState.VOTING_CLOSED,
+        "Results can be published only when voting is closed",
+    )
+    election_state_service.publish_results(db, election)
+    audit_service.log_action(
+        db,
+        action="result_published",
+        resource_type="election",
+        resource_id=election.id,
+    )
     db.commit()
     return {"message": "Result published"}
 
@@ -255,6 +294,10 @@ def delete_election(db: Session, election_id: int):
     election = db.query(models.Election).filter(models.Election.id == election_id).first()
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
+    election_state_service.assert_not_started_voting(
+        election,
+        "Election cannot be deleted after voting starts",
+    )
     db.delete(election)
     db.commit()
     return {"message": "Election deleted successfully"}
@@ -273,9 +316,21 @@ def unpublish_result(db: Session, election_id: int):
     election = db.query(models.Election).filter(models.Election.id == election_id).first()
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
+    if election_state_service.get_state(election) in {
+        election_state_service.ElectionState.RESULT_PUBLISHED,
+        election_state_service.ElectionState.ARCHIVED,
+    }:
+        raise HTTPException(status_code=400, detail="Published results cannot be unpublished")
     election.result_visible = False
     db.commit()
     return {"message": "Result unpublished successfully"}
+
+
+def transition_election_state(db: Session, election_id: int, data: schemas.ElectionStateTransition):
+    election = db.query(models.Election).filter(models.Election.id == election_id).first()
+    if not election:
+        raise HTTPException(status_code=404, detail="Election not found")
+    return election_state_service.transition_election(db, election, data.status)
 
 
 def get_all_candidate_applications(db: Session):

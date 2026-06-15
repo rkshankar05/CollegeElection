@@ -9,7 +9,7 @@ from app.services import votes_service
 router = APIRouter(prefix="/votes", tags=["Votes"])
 
 
-@router.post("/submit")
+@router.post("/submit", response_model=schemas.VoteSubmitOut)
 def submit_votes(
     data: schemas.VoteSubmit,
     db: Session = Depends(get_db),

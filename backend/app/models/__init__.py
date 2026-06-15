@@ -2,7 +2,7 @@ from app.models.audit_log import AuditLog
 from app.models.candidate import Candidate, CandidatePost
 from app.models.election import Election, Post
 from app.models.user import Student, User
-from app.models.vote import Vote
+from app.models.vote import Vote, VoteReceipt
 
 __all__ = [
     "AuditLog",
@@ -13,4 +13,5 @@ __all__ = [
     "Student",
     "User",
     "Vote",
+    "VoteReceipt",
 ]

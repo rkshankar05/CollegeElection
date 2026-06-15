@@ -1,9 +1,22 @@
+import secrets
+
 from fastapi import HTTPException
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import models, schemas, utils
+from app import models, schemas
+from app.repositories.vote_repo import VoteRepository
+import app.services.audit_service as audit_service
+import app.services.election_state_service as election_state_service
+
+
+def _generate_receipt_code(vote_repo: VoteRepository) -> str:
+    for _ in range(5):
+        receipt_code = secrets.token_urlsafe(24)
+        if not vote_repo.get_receipt_by_code(receipt_code):
+            return receipt_code
+    raise HTTPException(status_code=500, detail="Could not generate vote receipt")
 
 
 def _build_result_rows(db: Session, election_id: int):
@@ -12,7 +25,6 @@ def _build_result_rows(db: Session, election_id: int):
             models.Vote.post_id,
             models.Post.name.label("post_name"),
             models.Vote.candidate_id,
-            models.Vote.is_nota,
             models.User.name.label("candidate_name"),
             func.count(models.Vote.id).label("total_votes"),
         )
@@ -24,7 +36,6 @@ def _build_result_rows(db: Session, election_id: int):
             models.Vote.post_id,
             models.Post.name,
             models.Vote.candidate_id,
-            models.Vote.is_nota,
             models.User.name,
         )
         .all()
@@ -34,8 +45,8 @@ def _build_result_rows(db: Session, election_id: int):
             "post_id": row.post_id,
             "post_name": row.post_name,
             "candidate_id": row.candidate_id,
-            "candidate_name": "NOTA" if row.is_nota else row.candidate_name,
-            "is_nota": row.is_nota,
+            "candidate_name": "NOTA" if row.candidate_id is None else row.candidate_name,
+            "is_nota": row.candidate_id is None,
             "total_votes": row.total_votes,
         }
         for row in rows
@@ -91,15 +102,16 @@ def submit_votes(db: Session, current_user: models.User, data: schemas.VoteSubmi
     if current_user.role != "student":
         raise HTTPException(status_code=403, detail="Only students can vote")
 
-    election = db.query(models.Election).filter(models.Election.id == data.election_id).first()
+    vote_repo = VoteRepository(db)
+    election = vote_repo.get_election(data.election_id)
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
 
-    now = utils.current_election_time()
-    if now < election.voting_start:
-        raise HTTPException(status_code=400, detail="Voting has not started")
-    if now > election.voting_end:
-        raise HTTPException(status_code=400, detail="Voting has ended")
+    election_state_service.assert_state(
+        election,
+        election_state_service.ElectionState.VOTING_OPEN,
+        "Votes can be submitted only while voting is open",
+    )
     if not election.candidates_visible:
         raise HTTPException(status_code=403, detail="Candidate list is not published yet")
     if len(data.votes) == 0:
@@ -110,54 +122,67 @@ def submit_votes(db: Session, current_user: models.User, data: schemas.VoteSubmi
         raise HTTPException(status_code=400, detail="Duplicate post vote found")
 
     for vote_item in data.votes:
-        post = db.query(models.Post).filter(
-            models.Post.id == vote_item.post_id,
-            models.Post.election_id == data.election_id,
-        ).first()
-        if not post:
+        if not vote_repo.get_post_for_election(data.election_id, vote_item.post_id):
             raise HTTPException(status_code=400, detail=f"Invalid post id {vote_item.post_id}")
+
+        if vote_repo.has_existing_vote(current_user.id, data.election_id, vote_item.post_id):
+            raise HTTPException(
+                status_code=400,
+                detail="You have already voted for this election post",
+            )
+
         if vote_item.is_nota:
             continue
 
-        candidate = db.query(models.Candidate).filter(
-            models.Candidate.id == vote_item.candidate_id,
-            models.Candidate.election_id == data.election_id,
-        ).first()
-        if not candidate:
-            raise HTTPException(status_code=400, detail=f"Invalid candidate id {vote_item.candidate_id}")
-
-        status_filter = models.CandidatePost.status == "approved"
-        if candidate.status == "approved":
-            status_filter = or_(models.CandidatePost.status == "approved", models.CandidatePost.status.is_(None))
-
-        candidate_post = db.query(models.CandidatePost).filter(
-            models.CandidatePost.candidate_id == vote_item.candidate_id,
-            models.CandidatePost.post_id == vote_item.post_id,
-            status_filter,
-        ).first()
-        if not candidate_post:
+        if not vote_repo.get_approved_candidate_for_vote(
+            data.election_id,
+            vote_item.post_id,
+            vote_item.candidate_id,
+        ):
             raise HTTPException(status_code=400, detail="Candidate is not approved for the selected post")
 
     try:
+        receipts = []
         for vote_item in data.votes:
-            db.add(
+            vote_repo.add(
                 models.Vote(
+                    election_id=data.election_id,
+                    post_id=vote_item.post_id,
+                    candidate_id=None if vote_item.is_nota else vote_item.candidate_id,
+                )
+            )
+            receipt = vote_repo.add_receipt(
+                models.VoteReceipt(
                     voter_id=current_user.id,
                     election_id=data.election_id,
                     post_id=vote_item.post_id,
-                    candidate_id=vote_item.candidate_id,
-                    is_nota=vote_item.is_nota,
+                    receipt_code=_generate_receipt_code(vote_repo),
                 )
             )
+            db.flush()
+            audit_service.log_action(
+                db,
+                action="vote_submitted",
+                actor_id=current_user.id,
+                resource_type="vote_receipt",
+                resource_id=receipt.id,
+                details=f"election_id={data.election_id};post_id={vote_item.post_id}",
+            )
+            receipts.append(receipt)
         db.commit()
+        for receipt in receipts:
+            db.refresh(receipt)
     except IntegrityError:
         db.rollback()
         raise HTTPException(
             status_code=400,
-            detail="You have already voted for one or more selected posts",
+            detail="You have already voted for this election post",
         )
 
-    return {"message": "Votes submitted successfully. You cannot change them now."}
+    return {
+        "message": "Votes submitted successfully. Keep your receipt codes for verification.",
+        "receipts": receipts,
+    }
 
 
 def admin_live_results(db: Session, election_id: int):
@@ -172,8 +197,10 @@ def public_results(db: Session, election_id: int):
     if not election:
         raise HTTPException(status_code=404, detail="Election not found")
 
-    now = utils.current_election_time()
-    if not election.result_visible or now < election.voting_end:
+    if election_state_service.get_state(election) not in {
+        election_state_service.ElectionState.RESULT_PUBLISHED,
+        election_state_service.ElectionState.ARCHIVED,
+    } or not election.result_visible:
         raise HTTPException(status_code=403, detail="Result not published yet")
 
     result_rows = _build_result_rows(db, election_id)

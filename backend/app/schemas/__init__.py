@@ -6,8 +6,8 @@ from app.schemas.candidate import (
     CandidateReview,
     StudentUpdate,
 )
-from app.schemas.election import ElectionCreate, ElectionOut, PostCreate, PostOut
-from app.schemas.vote import ResultOut, SingleVote, VoteSubmit
+from app.schemas.election import ElectionCreate, ElectionOut, ElectionStateTransition, PostCreate, PostOut
+from app.schemas.vote import ResultOut, SingleVote, VoteReceiptOut, VoteSubmit, VoteSubmitOut
 
 __all__ = [
     "ActivePostOut",
@@ -17,6 +17,7 @@ __all__ = [
     "CandidateReview",
     "ElectionCreate",
     "ElectionOut",
+    "ElectionStateTransition",
     "PostCreate",
     "PostOut",
     "ResultOut",
@@ -28,4 +29,6 @@ __all__ = [
     "UserOut",
     "UserProfileOut",
     "VoteSubmit",
+    "VoteSubmitOut",
+    "VoteReceiptOut",
 ]

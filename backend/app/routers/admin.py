@@ -49,13 +49,23 @@ def update_election(
     return admin_service.update_election(db, election_id, election_data)
 
 
+@router.patch("/elections/{election_id}/state", response_model=schemas.ElectionOut)
+def transition_election_state(
+    election_id: int,
+    data: schemas.ElectionStateTransition,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(oauth2.require_admin),
+):
+    return admin_service.transition_election_state(db, election_id, data)
+
+
 @router.post("/posts", response_model=schemas.PostOut)
 def create_post(
     post_data: schemas.PostCreate,
     db: Session = Depends(get_db),
     admin: models.User = Depends(oauth2.require_admin),
 ):
-    return admin_service.create_post(db, post_data)
+    return admin_service.create_post(db, post_data, admin)
 
 
 @router.patch("/students/{student_id}/candidate-block")
