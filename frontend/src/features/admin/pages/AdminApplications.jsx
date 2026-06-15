@@ -4,7 +4,13 @@ import { reviewCandidate } from "../../candidates/services/candidateService";
 import { getElections } from "../../elections/services/electionService";
 import "../../../styles/admin.css";
 
-const reviewableStatuses = new Set(["APPLICATION_OPEN", "APPLICATION_CLOSED"]);
+const activeStatuses = new Set([
+  "DRAFT",
+  "APPLICATION_OPEN",
+  "APPLICATION_CLOSED",
+  "VOTING_OPEN",
+  "VOTING_CLOSED",
+]);
 
 export default function AdminApplications() {
   const [groups, setGroups] = useState({});
@@ -22,18 +28,31 @@ export default function AdminApplications() {
       ]);
       const reviewableElectionIds = new Set(
         (electionData || [])
-          .filter((election) => reviewableStatuses.has(election.status))
+          .filter((election) => activeStatuses.has(election.status))
           .map((election) => Number(election.id))
       );
+      const fallbackElection = (electionData || []).find((election) => activeStatuses.has(election.status));
       const sourceGroups = Array.isArray(data) ? { Applications: data } : data || {};
       const filteredGroups = {};
 
       Object.entries(sourceGroups).forEach(([groupName, applications]) => {
-        const filtered = (applications || []).filter(
-          (application) =>
-            application.election_id &&
-            reviewableElectionIds.has(Number(application.election_id))
-        );
+        const filtered = (applications || [])
+          .filter(
+            (application) =>
+              application.election_id
+                ? reviewableElectionIds.has(Number(application.election_id))
+                : Boolean(fallbackElection)
+          )
+          .map((application) =>
+            application.election_id || !fallbackElection
+              ? application
+              : {
+                  ...application,
+                  election_id: fallbackElection.id,
+                  election_title: fallbackElection.title,
+                  election_year: fallbackElection.year,
+                }
+          );
         if (filtered.length > 0) {
           filteredGroups[groupName] = filtered;
         }
@@ -93,7 +112,7 @@ export default function AdminApplications() {
       {!loading && Object.keys(groups).length === 0 && (
         <div className="card empty-state">
           <h2>No candidate applications found</h2>
-          <p>Only candidates from active application-review elections are shown here.</p>
+          <p>Only candidates from active elections are shown here.</p>
         </div>
       )}
 

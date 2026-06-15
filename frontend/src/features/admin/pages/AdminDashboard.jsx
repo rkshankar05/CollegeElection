@@ -10,6 +10,7 @@ import {
   getElectionPostsForAdmin,
   deletePost,
   deletePostByName,
+  deleteElection,
 } from "../services/adminService";
 import { getElections, getElectionPosts } from "../../elections/services/electionService";
 import "../../../styles/admin.css";
@@ -353,6 +354,31 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleDeleteElection() {
+    if (!selectedElectionId) {
+      setError("Select an election to delete");
+      setMsg("");
+      return;
+    }
+
+    const selected = elections.find((item) => String(item.id) === String(selectedElectionId));
+    const label = selected ? `${selected.title} (${selected.year})` : "this election";
+
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await deleteElection(selectedElectionId);
+      setMsg("Election deleted successfully");
+      setError("");
+      resetElectionForm();
+      await loadElections();
+    } catch (err) {
+      showError(err, "Failed to delete election");
+    }
+  }
+
   async function handleCopyPreviousPosts() {
     if (!post.election_id) {
       setError("Please select an election first");
@@ -379,9 +405,9 @@ export default function AdminDashboard() {
     try {
       let result;
       try {
-        result = await deletePostByName(post.election_id, item.name);
-      } catch {
         result = await deletePost(item.id);
+      } catch {
+        result = await deletePostByName(post.election_id, item.name);
       }
       const skipped = result.skipped ? ` ${result.skipped} protected copy/copies skipped.` : "";
       setMsg(`${result.message}. ${result.deleted} post(s) removed.${skipped}`);
@@ -670,6 +696,15 @@ export default function AdminDashboard() {
                   Switch To Create Mode
                 </button>
               )}
+              {selectedElectionId && (
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={handleDeleteElection}
+                >
+                  Delete Election
+                </button>
+              )}
             </div>
           </form>
         </section>
@@ -779,7 +814,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="entity-actions">
                       <button type="button" className="danger" onClick={() => handleDeletePost(item)}>
-                        Delete
+                        Delete Post
                       </button>
                     </div>
                   </article>

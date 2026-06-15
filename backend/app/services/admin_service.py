@@ -264,7 +264,7 @@ def _delete_matching_posts(db: Session, post: models.Post, admin: models.User):
         action="post_deleted",
         actor_id=admin.id,
         resource_type="post",
-        resource_id=post_id,
+        resource_id=post.id,
     )
     db.commit()
     return {
@@ -502,6 +502,13 @@ def transition_election_state(db: Session, election_id: int, data: schemas.Elect
 
 
 def get_all_candidate_applications(db: Session):
+    active_states = {
+        election_state_service.ElectionState.DRAFT,
+        election_state_service.ElectionState.APPLICATION_OPEN,
+        election_state_service.ElectionState.APPLICATION_CLOSED,
+        election_state_service.ElectionState.VOTING_OPEN,
+        election_state_service.ElectionState.VOTING_CLOSED,
+    }
     rows = (
         db.query(models.Candidate, models.CandidatePost, models.User, models.Student, models.Post, models.Election)
         .join(models.User, models.User.id == models.Candidate.user_id)
@@ -514,10 +521,7 @@ def get_all_candidate_applications(db: Session):
     )
     result = {}
     for candidate, candidate_post, user, student, post, election in rows:
-        if election_state_service.get_state(election) not in {
-            election_state_service.ElectionState.APPLICATION_OPEN,
-            election_state_service.ElectionState.APPLICATION_CLOSED,
-        }:
+        if election_state_service.get_state(election) not in active_states:
             continue
         group_name = f"{election.title} ({election.year}) - {post.name}"
         if group_name not in result:

@@ -86,6 +86,15 @@ def delete_post(
     return admin_service.delete_post_everywhere(db, post_id, admin)
 
 
+@router.delete("/delete-post/{post_id}")
+def delete_post_alias(
+    post_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(oauth2.require_admin),
+):
+    return admin_service.delete_post_everywhere(db, post_id, admin)
+
+
 @router.delete("/elections/{election_id}/posts/by-name")
 def delete_post_by_name(
     election_id: int,
