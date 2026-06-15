@@ -1,9 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
-
-from app.routers import (
+from app.api.v1.routers import (
     auth,
     admin,
     elections,
@@ -12,9 +10,7 @@ from app.routers import (
 )
 
 
-app = FastAPI(
-    title="College Voting System"
-)
+app = FastAPI(title="College Voting System")
 
 
 app.add_middleware(
